@@ -4,6 +4,14 @@
 
 ## Money v6.0.0
 
+This is the changelog for Money v6.0.0 released on May 8th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/kipcole9/money/tags)
+
+## Enhancements
+
+* Supports `Decimal` version 3.0.0.
+
+## Money v6.0.0-rc.0
+
 This is the changelog for Money v6.0.0 released on April 2nd, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/kipcole9/money/tags)
 
 This is a major release that replaces the `ex_cldr` family of dependencies with the new `localize` package. See the [Migration from 5.x to 6.0](#migration-from-5x-to-60) section in the README for upgrade instructions.
