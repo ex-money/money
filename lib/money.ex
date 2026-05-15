@@ -83,6 +83,7 @@ defmodule Money do
   def known_currencies do
     Localize.Currency.known_currency_codes() ++ Money.Currency.Store.codes()
   end
+
   defdelegate known_current_currencies, to: Money.Currency
   defdelegate known_historic_currencies, to: Money.Currency
   defdelegate known_tender_currencies, to: Money.Currency

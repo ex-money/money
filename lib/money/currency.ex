@@ -258,8 +258,11 @@ defmodule Money.Currency do
 
       {:error, _} ->
         case Money.Currency.Store.get(normalize_code(code)) do
-          nil -> {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
-          currency -> {:ok, currency}
+          nil ->
+            {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
+
+          currency ->
+            {:ok, currency}
         end
     end
   end
@@ -293,7 +296,10 @@ defmodule Money.Currency do
          Regex.match?(@valid_private_currency_code, upcase_code) do
       {:ok, String.to_atom(upcase_code)}
     else
-      {:error, Money.UnknownCurrencyError.exception("The currency #{inspect(currency_code)} is not a valid custom currency code.")}
+      {:error,
+       Money.UnknownCurrencyError.exception(
+         "The currency #{inspect(currency_code)} is not a valid custom currency code."
+       )}
     end
   end
 

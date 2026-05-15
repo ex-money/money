@@ -38,8 +38,8 @@ jobs:
             elixir: "1.19.5-otp-27"
           - otp: "28.3.1"
             elixir: "1.19.5-otp-28"
-          - otp: "28.3.1"
-            elixir: "1.20.0-rc.1-otp-28"
+          - otp: "29.0"
+            elixir: "1.20.0-rc.5-otp-29"
             lint: true
     steps:
     # Step: Setup Elixir + Erlang image as the base.
@@ -86,20 +86,24 @@ jobs:
       run: mix deps.get
 
     # Step: Compile the project treating any warnings as errors.
-    # Customize this step if a different behavior is desired.
     - name: Compiles without warnings
       run: mix compile --warnings-as-errors
 
-    # Step: Check that the checked in code has already been formatted.
-    # This step fails if something was found unformatted.
-    # Customize this step as desired.
-    # - name: Check Formatting
-    #   run: mix format --check-formatted
+    # Step: Check that the checked-in code has already been formatted.
+    # Only runs on the canonical (lint) matrix entry — formatting
+    # rules can shift between Elixir minor versions and we only
+    # enforce the latest.
+    - name: Check formatting
+      if: ${{ matrix.lint }}
+      run: mix format --check-formatted
 
     # Step: Execute the tests.
     - name: Run tests
       run: mix test
 
-    # Step: Execute dialyzer.
+    # Step: Execute dialyzer. Only on the lint matrix entry —
+    # dialyzer output varies across OTP versions and we pin
+    # the canonical check to one row.
     - name: Run dialyzer
+      if: ${{ matrix.lint }}
       run: mix dialyzer
