@@ -1,6 +1,6 @@
 # Introduction to Money
 
-![Build status](https://github.com/kipcole9/money/actions/workflows/ci.yml/badge.svg)
+![Build status](https://github.com/ex-money/money/actions/workflows/ci.yml/badge.svg)
 [![Hex.pm](https://img.shields.io/hexpm/v/ex_money.svg)](https://hex.pm/packages/ex_money)
 [![Hex.pm](https://img.shields.io/hexpm/dw/ex_money.svg?)](https://hex.pm/packages/ex_money)
 [![Hex.pm](https://img.shields.io/hexpm/dt/ex_money.svg?)](https://hex.pm/packages/ex_money)
@@ -262,7 +262,7 @@ Localize.put_locale(:fr)
 
 ### Preloading historic rates
 
-The current implementation will call the api_module to retrieve the historic rates once for each date in the `:preload_historic_rates` range.  Some exchange rate services, like Open Exchange Rates, provides a bulk retrieval api that can retrieve multiple dates in a single call.  However this endpoint is only available for premium subscribers and it is still charged on a "per date retrieved" basis. So while there is a network/performance/efficiency benefit there is no economic benefit.  Please file an issue on [github](https://github.com/kipcole9/money) if implementing a bulk api is important to you.
+The current implementation will call the api_module to retrieve the historic rates once for each date in the `:preload_historic_rates` range.  Some exchange rate services, like Open Exchange Rates, provides a bulk retrieval api that can retrieve multiple dates in a single call.  However this endpoint is only available for premium subscribers and it is still charged on a "per date retrieved" basis. So while there is a network/performance/efficiency benefit there is no economic benefit.  Please file an issue on [github](https://github.com/ex-money/money) if implementing a bulk api is important to you.
 
 Some examples of configuring the `:preload_historic_rates` key follow:
 

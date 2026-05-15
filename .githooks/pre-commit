@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#
+# Money pre-commit hook.
+#
+# Runs `mix format` on every staged `.ex` / `.exs` / `.heex` file so
+# that CI's `mix format --check-formatted` cannot fail on a freshly-
+# committed file. Re-stages each formatted file in-place so the
+# commit you wrote is the commit that lands.
+#
+# Lives under .githooks/ (committed to the repo, not under .git/hooks/
+# which is local-only). Activate with:
+#
+#     git config core.hooksPath .githooks
+#
+
+set -eu
+
+# Collect staged Elixir files (added, copied, modified — not deleted).
+# Avoid `mapfile` so this works on macOS's stock bash 3.2.
+staged="$(
+    git diff --cached --name-only --diff-filter=ACM \
+        | grep -E '\.(ex|exs|heex)$' || true
+)"
+
+if [ -z "$staged" ]; then
+    exit 0
+fi
+
+# Skip files that no longer exist on disk (e.g. renamed away after
+# staging) and accumulate the ones we can format.
+to_format=""
+while IFS= read -r f; do
+    if [ -f "$f" ]; then
+        to_format="$to_format $f"
+    fi
+done <<EOF
+$staged
+EOF
+
+# Trim leading whitespace; bail if nothing's left.
+to_format="${to_format# }"
+if [ -z "$to_format" ]; then
+    exit 0
+fi
+
+# Format the files in place. Word-splitting on `to_format` is
+# intentional — the file list is space-separated.
+# shellcheck disable=SC2086
+mix format $to_format
+
+# Re-stage anything `mix format` actually changed. `git add` is a
+# no-op for files that didn't change, so this is safe to call on
+# every file in the list.
+# shellcheck disable=SC2086
+git add $to_format

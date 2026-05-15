@@ -2,6 +2,7 @@ defmodule Money.Mixfile do
   use Mix.Project
 
   @version "6.0.0"
+  @source_url "https://github.com/ex-money/money"
 
   def project do
     [
@@ -9,7 +10,7 @@ defmodule Money.Mixfile do
       version: @version,
       elixir: "~> 1.17",
       name: "Money",
-      source_url: "https://github.com/kipcole9/money",
+      source_url: @source_url,
       docs: docs(),
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
@@ -45,9 +46,9 @@ defmodule Money.Mixfile do
       maintainers: ["Kip Cole"],
       licenses: ["Apache-2.0"],
       links: %{
-        "GitHub" => "https://github.com/kipcole9/money",
-        "Readme" => "https://github.com/kipcole9/money/blob/v#{@version}/README.md",
-        "Changelog" => "https://github.com/kipcole9/money/blob/v#{@version}/CHANGELOG.md"
+        "GitHub" => @source_url,
+        "Readme" => "#{@source_url}/blob/v#{@version}/README.md",
+        "Changelog" => "#{@source_url}/blob/v#{@version}/CHANGELOG.md"
       },
       files: [
         "lib",

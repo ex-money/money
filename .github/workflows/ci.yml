@@ -103,7 +103,11 @@ jobs:
 
     # Step: Execute dialyzer. Only on the lint matrix entry —
     # dialyzer output varies across OTP versions and we pin
-    # the canonical check to one row.
+    # the canonical check to one row. Forced to MIX_ENV=dev
+    # because dialyxir is declared `only: :dev` and the rest
+    # of this workflow runs under MIX_ENV=test.
     - name: Run dialyzer
       if: ${{ matrix.lint }}
+      env:
+        MIX_ENV: dev
       run: mix dialyzer
