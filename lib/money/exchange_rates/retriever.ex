@@ -83,8 +83,7 @@ defmodule Money.ExchangeRates.Retriever do
   @doc """
   Forces retrieval of historic exchange rates for a single date
 
-  * `date` is a date returned by `Date.new/3` or any struct with the
-    elements `:year`, `:month` and `:day` or
+  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`) or
 
   * a `Date.Range.t` created by `Date.range/2` that specifies a
     range of dates to retrieve
@@ -125,11 +124,9 @@ defmodule Money.ExchangeRates.Retriever do
   @doc """
   Forces retrieval of historic exchange rates for a range of dates
 
-  * `from` is a date returned by `Date.new/3` or any struct with the
-    elements `:year`, `:month` and `:day`.
+  * `from` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
-  * `to` is a date returned by `Date.new/3` or any struct with the
-    elements `:year`, `:month` and `:day`.
+  * `to` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
   Returns:
 

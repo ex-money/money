@@ -115,8 +115,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   @doc """
   Retrieves the historic exchange rates from Open Exchange Rates site.
 
-  * `date` is a date returned by `Date.new/3` or any struct with the
-    elements `:year`, `:month` and `:day`.
+  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
   * `config` is the retrieval configuration. When invoked from the
     exchange rates service this will be the config returned from

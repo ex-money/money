@@ -257,8 +257,7 @@ defmodule Money.ExchangeRates do
   @doc """
   Returns historic exchange rates.
 
-  * `date` is a date returned by `Date.new/3` or any struct with the
-    elements `:year`, `:month` and `:day`.
+  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
   Returns:
 
@@ -274,7 +273,7 @@ defmodule Money.ExchangeRates do
   through `Money.ExchangeRates.Retriever.historic_rates/1`.
 
   """
-  @spec historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def historic_rates(date) do
     try do
       case cache().historic_rates(date) do

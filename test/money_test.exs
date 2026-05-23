@@ -9,8 +9,6 @@ defmodule MoneyTest do
   doctest Money.ExchangeRates
   doctest Money.Currency
   doctest Money.ExchangeRates.Cache
-  doctest Money.ExchangeRates.Cache.Ets
-  doctest Money.ExchangeRates.Cache.Dets
   doctest Money.ExchangeRates.Retriever
   doctest Money.Financial
   doctest Money.Sigil

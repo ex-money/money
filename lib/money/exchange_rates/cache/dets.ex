@@ -7,8 +7,6 @@ defmodule Money.ExchangeRates.Cache.Dets do
   @behaviour Money.ExchangeRates.Cache
 
   @ets_table :exchange_rates
-  @dets_path Path.join(:code.priv_dir(:ex_money), ".exchange_rates")
-             |> String.to_charlist()
 
   require Logger
   require Money.ExchangeRates.Cache.EtsDets
@@ -16,7 +14,8 @@ defmodule Money.ExchangeRates.Cache.Dets do
 
   @impl true
   def init do
-    {:ok, name} = :dets.open_file(@ets_table, file: @dets_path)
+    path = System.tmp_dir!() |> Path.join(".exchange_rates") |> String.to_charlist()
+    {:ok, name} = :dets.open_file(@ets_table, file: path)
     name
   end
 
