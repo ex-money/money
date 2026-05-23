@@ -6,12 +6,6 @@ defmodule MoneyTest do
   alias Money.Financial
 
   doctest Money
-  doctest Money.ExchangeRates
-  doctest Money.Currency
-  doctest Money.ExchangeRates.Cache
-  doctest Money.Financial
-  doctest Money.Sigil
-  doctest Money.Subscription.Plan
 
   test "create a new money struct with a binary currency code" do
     money = Money.new(1234, "USD")

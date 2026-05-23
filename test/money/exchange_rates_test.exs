@@ -4,6 +4,8 @@ defmodule Money.ExchangeRatesTest do
 
   alias Money.ExchangeRates
 
+  doctest ExchangeRates
+
   test "Get exchange rates from ExchangeRates.Retriever" do
     test_result = {:ok, %{USD: Decimal.new(1), AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2")}}
     assert Money.ExchangeRates.latest_rates() == test_result
