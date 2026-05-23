@@ -110,7 +110,7 @@ defmodule Money.ExchangeRates.Supervisor do
   retriever. The returned value is one of:
 
   * `:running` if the service is running. In this
-    state the valid action is `Money.ExchangeRates.Service.stop/0`.
+    state the valid action is `Money.ExchangeRates.Retriever.stop/0`.
 
   * `:stopped` if it is stopped. In this state
     the valid actions are `Money.ExchangeRates.Supervisor.restart_retriever/0`

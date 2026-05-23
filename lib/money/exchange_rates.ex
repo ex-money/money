@@ -35,9 +35,10 @@ defmodule Money.ExchangeRates do
     `Money.ExchangeRates.OpenExchangeRates`.
 
   * `:callback_module` defines a module that follows the
-    Money.ExchangeRates.Callback behaviour whereby the function
-    `rates_retrieved/2` is invoked after every successful retrieval
-    of exchange rates. The default is `Money.ExchangeRates.Callback`.
+    `Money.ExchangeRates.Callback` behaviour whereby the functions
+    `latest_rates_retrieved/2` and `historic_rates_retrieved/2` are
+    invoked after every successful retrieval of exchange rates.
+    The default is `Money.ExchangeRates.Callback`.
 
   * `:preload_historic_rates` defines a date or a date range
     that will be requested when the exchange rate service starts up.

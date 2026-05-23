@@ -8,14 +8,16 @@ defmodule Money.ExchangeRates.Callback do
   """
 
   @doc """
-  Invoked after the latest exchange rates are successfully retrieved from an external
-  data source.
+  Invoked after the latest exchange rates have been successfully retrieved.
+  Use this callback to perform any desired side effects such as persisting
+  rates to a database.
   """
   @callback latest_rates_retrieved(%{}, DateTime.t()) :: :ok
 
   @doc """
-  Invoked after historic exchange rates are successfully retrieved from an external
-  data source.
+  Invoked after historic exchange rates for a given date have been successfully
+  retrieved. Use this callback to perform any desired side effects such as
+  persisting rates to a database.
   """
   @callback historic_rates_retrieved(%{}, Date.t()) :: :ok
 
