@@ -1,4 +1,4 @@
-defmodule Money.ExchangeRates.CallbackTest do
+defmodule Money.ExchangeRatesCallbackMock do
   @behaviour Money.ExchangeRates.Callback
 
   def init do

@@ -1,4 +1,4 @@
-defmodule Money.ExchangeRates.Api.Test do
+defmodule Money.ExchangeRatesMock do
   @behaviour Money.ExchangeRates
 
   @app_id "app_id"

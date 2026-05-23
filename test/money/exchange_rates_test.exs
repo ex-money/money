@@ -1,4 +1,4 @@
-defmodule Money.ExchangeRates.Test do
+defmodule Money.ExchangeRatesTest do
   use ExUnit.Case
   import ExUnit.CaptureIO
 
@@ -95,7 +95,7 @@ defmodule Money.ExchangeRates.Test do
   test "that api latest_rates callbacks are executed" do
     config =
       Money.ExchangeRates.default_config()
-      |> Map.put(:callback_module, Money.ExchangeRates.CallbackTest)
+      |> Map.put(:callback_module, Money.ExchangeRatesCallbackMock)
 
     Money.ExchangeRates.Retriever.reconfigure(config)
     Money.ExchangeRates.Retriever.latest_rates()
@@ -109,7 +109,7 @@ defmodule Money.ExchangeRates.Test do
   test "that api historic_rates callbacks are executed" do
     config =
       Money.ExchangeRates.default_config()
-      |> Map.put(:callback_module, Money.ExchangeRates.CallbackTest)
+      |> Map.put(:callback_module, Money.ExchangeRatesCallbackMock)
 
     Money.ExchangeRates.Retriever.reconfigure(config)
     Money.ExchangeRates.Retriever.historic_rates(~D[2017-01-01])

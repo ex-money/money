@@ -16,7 +16,7 @@ config :localize,
 config :ex_money,
   exchange_rates_retrieve_every: :never,
   open_exchange_rates_app_id: {:system, "OPEN_EXCHANGE_RATES_APP_ID"},
-  api_module: Money.ExchangeRates.Api.Test,
+  api_module: Money.ExchangeRatesMock,
   log_failure: nil,
   log_info: nil,
   json_library: Jason
