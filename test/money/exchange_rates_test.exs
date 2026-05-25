@@ -1,47 +1,197 @@
 defmodule Money.ExchangeRatesTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
+
   alias Money.ExchangeRates
 
   doctest ExchangeRates
 
-  test "Get exchange rates from ExchangeRates.Retriever" do
-    test_result = {:ok, %{USD: Decimal.new(1), AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2")}}
-    assert Money.ExchangeRates.latest_rates() == test_result
+  @rates %{
+    AUD: Decimal.new("0.5"),
+    EUR: Decimal.new("1.1"),
+    USD: Decimal.new("0.7")
+  }
+
+  setup do
+    Code.ensure_loaded!(Money.ExchangeRatesCallbackMock)
+
+    default_config = Money.ExchangeRates.default_config()
+
+    ExchangeRates.Supervisor.stop_retriever()
+    ExchangeRates.Supervisor.delete_retriever()
+
+    ExchangeRates.Supervisor.start_retriever(%{
+      default_config
+      | callback_module: Money.ExchangeRatesCallbackMock
+    })
+
+    on_exit(fn ->
+      :ets.delete(:exchange_rates, :latest_rates)
+      :ets.delete(:exchange_rates, :last_updated)
+      :ets.delete(:exchange_rates, ~D[2017-01-01])
+
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      ExchangeRates.Supervisor.start_retriever(default_config)
+    end)
   end
 
+  describe "latest_rates/0" do
+    test "fetches from the cache when rates are cached" do
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
 
-  test "that api latest_rates callbacks are executed" do
-    config =
-      Money.ExchangeRates.default_config()
-      |> Map.put(:callback_module, Money.ExchangeRatesCallbackMock)
+      assert ExchangeRates.latest_rates() == {:ok, @rates}
+    end
 
-    Money.ExchangeRates.Retriever.reconfigure(config)
-    Money.ExchangeRates.Retriever.latest_rates()
+    test "fetches from the retriever when the cache is empty" do
+      assert ExchangeRates.latest_rates() ==
+               {:ok, %{AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2"), USD: Decimal.new(1)}}
+    end
 
-    assert Application.get_env(:ex_money, :test) == "Latest Rates Retrieved"
+    test "returns an error if the retriever is not running" do
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
 
-    Money.ExchangeRates.default_config()
-    |> Money.ExchangeRates.Retriever.reconfigure()
+      assert ExchangeRates.latest_rates() ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+
+    test "returns error when retriever stops even if cache has rates" do
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      assert ExchangeRates.latest_rates() ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+
+    test "invokes latest_rates_retrieved callback after retrieval" do
+      pid = Process.whereis(Money.ExchangeRates.Retriever)
+      trace_module(pid, Money.ExchangeRatesCallbackMock)
+
+      ExchangeRates.latest_rates()
+
+      assert_received {:trace, ^pid, :call,
+                       {Money.ExchangeRatesCallbackMock, :latest_rates_retrieved,
+                        [_rates, _retrieved_at]}}
+    end
   end
 
-  test "that api historic_rates callbacks are executed" do
-    config =
-      Money.ExchangeRates.default_config()
-      |> Map.put(:callback_module, Money.ExchangeRatesCallbackMock)
+  describe "historic_rates/1" do
+    test "fetches from the cache when rates are cached" do
+      ExchangeRates.Cache.Ets.store_historic_rates(@rates, ~D[2017-01-01])
 
-    Money.ExchangeRates.Retriever.reconfigure(config)
-    Money.ExchangeRates.Retriever.historic_rates(~D[2017-01-01])
+      assert ExchangeRates.historic_rates(~D[2017-01-01]) == {:ok, @rates}
+    end
 
-    assert Application.get_env(:ex_money, :test) == "Historic Rates Retrieved"
+    test "fetches from the retriever when the cache is empty" do
+      assert ExchangeRates.historic_rates(~D[2017-01-01]) == {:ok, @rates}
+    end
 
-    Money.ExchangeRates.default_config()
-    |> Money.ExchangeRates.Retriever.reconfigure()
+    test "returns an error when the retriever is not running" do
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+
+    test "returns error when retriever stops even if cache has rates" do
+      ExchangeRates.Cache.Ets.store_historic_rates(@rates, ~D[2017-01-01])
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+
+    test "invokes historic_rates_retrieved callback after retrieval" do
+      pid = Process.whereis(Money.ExchangeRates.Retriever)
+      trace_module(pid, Money.ExchangeRatesCallbackMock)
+
+      ExchangeRates.historic_rates(~D[2017-01-01])
+
+      assert_received {:trace, ^pid, :call,
+                       {Money.ExchangeRatesCallbackMock, :historic_rates_retrieved, [_rates, _date]}}
+    end
   end
 
-  test "that the last_udpated timestamp is returned in a success tuple" do
-    # warm up cache
-    Money.ExchangeRates.Retriever.latest_rates()
+  describe "latest_rates_available?/0" do
+    test "returns true when rates are in the cache" do
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
 
-    assert {:ok, %DateTime{}} = Money.ExchangeRates.last_updated()
+      assert ExchangeRates.latest_rates_available?()
+    end
+
+    test "returns false when no rates are cached" do
+      :ets.delete(:exchange_rates, :latest_rates)
+
+      refute ExchangeRates.latest_rates_available?()
+    end
+
+    test "returns false when the retriever is not running" do
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      refute ExchangeRates.latest_rates_available?()
+    end
+
+    test "returns false when retriever stops even if cache has rates" do
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      refute ExchangeRates.latest_rates_available?()
+    end
+  end
+
+  describe "last_updated/0" do
+    test "returns the time when rates have been stored" do
+      retrieved_at = DateTime.utc_now(:second)
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, retrieved_at)
+
+      assert ExchangeRates.last_updated() == {:ok, retrieved_at}
+    end
+
+    test "returns an error when the retriever is not running" do
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      assert ExchangeRates.last_updated() ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+
+    test "returns error when retriever stops even if timestamp is cached" do
+      retrieved_at = DateTime.utc_now(:second)
+      ExchangeRates.Cache.Ets.store_latest_rates(@rates, retrieved_at)
+      ExchangeRates.Supervisor.stop_retriever()
+      ExchangeRates.Supervisor.delete_retriever()
+      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
+
+      assert ExchangeRates.last_updated() ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+    end
+  end
+
+  defp trace_module(pid, module) do
+    :erlang.trace_pattern({module, :_, :_}, true, [:local])
+    :erlang.trace(pid, true, [:call])
+
+    on_exit(fn ->
+      :erlang.trace(pid, false, [:call])
+      :erlang.trace_pattern({module, :_, :_}, false, [:local])
+    end)
   end
 end
