@@ -1,4 +1,6 @@
 defmodule Money.ExchangeRates.Cache.EtsDets do
+  @moduledoc false
+
   defmacro define_common_functions do
     quote do
       def latest_rates do

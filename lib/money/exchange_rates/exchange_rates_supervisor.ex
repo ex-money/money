@@ -10,6 +10,11 @@ defmodule Money.ExchangeRates.Supervisor do
 
   @child_name ExchangeRates.Retriever
 
+  @doc false
+  def start_link do
+    Supervisor.start_link(__MODULE__, :ok, name: ExchangeRates.Supervisor)
+  end
+
   @doc """
   Starts the Exchange Rates supervisor and
   optionally starts the exchange rates
@@ -30,10 +35,6 @@ defmodule Money.ExchangeRates.Supervisor do
     defined by the configuration key
     `:auto_start_exchange_rate_service`
   """
-  def start_link do
-    Supervisor.start_link(__MODULE__, :ok, name: ExchangeRates.Supervisor)
-  end
-
   def start_link(options) do
     options = Keyword.merge(default_options(), options)
     if options[:restart], do: stop()

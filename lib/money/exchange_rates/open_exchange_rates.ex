@@ -49,6 +49,15 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
     Map.put(default_config, :retriever_options, %{url: url, app_id: app_id})
   end
 
+  @doc """
+  Decodes the JSON body returned by the Open Exchange Rates API.
+
+  * `body` is the raw response body as a binary or charlist.
+
+  Returns:
+
+  * A map of currency code atoms to `Decimal` exchange rate values.
+  """
   def decode_rates(body) when is_list(body) do
     body
     |> List.to_string()

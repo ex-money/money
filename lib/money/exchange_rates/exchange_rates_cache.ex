@@ -1,7 +1,6 @@
 defmodule Money.ExchangeRates.Cache do
   @moduledoc """
-  Defines a cache behaviour and default implementation
-  of a cache for exchange rates
+  Defines the cache behaviour for exchange rates.
   """
 
   @doc """
@@ -44,14 +43,17 @@ defmodule Money.ExchangeRates.Cache do
   """
   @callback store_historic_rates(map(), Date.t()) :: :ok
 
+  @doc false
   def latest_rates do
     cache().latest_rates
   end
 
+  @doc false
   def historic_rates(date) do
     cache().historic_rates(date)
   end
 
+  @doc false
   def cache do
     Money.ExchangeRates.Retriever.config().cache_module
   end
