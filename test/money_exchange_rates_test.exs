@@ -67,7 +67,7 @@ defmodule Money.ExchangeRates.Test do
     config = Map.put(config, :log_levels, %{failure: nil, info: nil, success: nil})
 
     assert Money.ExchangeRates.OpenExchangeRates.get_latest_rates(config) ==
-             {:error, "Open Exchange Rates app_id is not configured.  Rates are not retrieved."}
+             {:error, "Open Exchange Rates app_id is not configured. Rates are not retrieved."}
   end
 
   if System.get_env("OPEN_EXCHANGE_RATES_APP_ID") do

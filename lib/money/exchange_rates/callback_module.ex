@@ -4,17 +4,17 @@ defmodule Money.ExchangeRates.Callback do
 
   When exchange rates are successfully retrieved, the function
   `latest_rates_retrieved/2` or `historic_rates_retrieved/2` is
-  called to perform any desired serialization or proocessing.
+  called to perform any desired serialization or processing.
   """
 
   @doc """
-  Defines the behaviour to retrieve the latest exchange rates from an external
+  Invoked after the latest exchange rates are successfully retrieved from an external
   data source.
   """
   @callback latest_rates_retrieved(%{}, DateTime.t()) :: :ok
 
   @doc """
-  Defines the behaviour to retrieve historic exchange rates from an external
+  Invoked after historic exchange rates are successfully retrieved from an external
   data source.
   """
   @callback historic_rates_retrieved(%{}, Date.t()) :: :ok

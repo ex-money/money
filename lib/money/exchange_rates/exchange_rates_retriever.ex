@@ -1,13 +1,13 @@
 defmodule Money.ExchangeRates.Retriever do
   @moduledoc """
   Implements a `GenServer` to retrieve exchange rates from
-  a configured retrieveal module on a periodic or on demand basis.
+  a configured retrieval module on a periodic or on demand basis.
 
   By default exchange rates are retrieved from [Open Exchange Rates](http://openexchangerates.org).
 
   The default period of execution is 5 minutes (300_000 milliseconds). The
   period of retrieval is configured in `config.exs` or the appropriate
-  environment configuration.  For example:
+  environment configuration. For example:
 
       config :ex_money,
         retrieve_every: 300_000
@@ -59,14 +59,14 @@ defmodule Money.ExchangeRates.Retriever do
   @doc """
   Forces retrieval of the latest exchange rates
 
-  Sends a message ot the exchange rate retrieval worker to request
+  Sends a message to the exchange rate retrieval worker to request
   current rates be retrieved and stored.
 
   Returns:
 
   * `{:ok, rates}` if exchange rates request is successfully sent.
 
-  * `{:error, reason}` if the request cannot be send.
+  * `{:error, reason}` if the request cannot be sent.
 
   This function does not return exchange rates, for that see
   `Money.ExchangeRates.latest_rates/0` or
@@ -93,9 +93,9 @@ defmodule Money.ExchangeRates.Retriever do
 
   * `{:ok, rates}` if exchange rates request is successfully sent.
 
-  * `{:error, reason}` if the request cannot be send.
+  * `{:error, reason}` if the request cannot be sent.
 
-  Sends a message ot the exchange rate retrieval worker to request
+  Sends a message to the exchange rate retrieval worker to request
   historic rates for a specified date or range be retrieved and
   stored.
 
@@ -135,7 +135,7 @@ defmodule Money.ExchangeRates.Retriever do
 
   * `{:ok, rates}` if exchange rates request is successfully sent.
 
-  * `{:error, reason}` if the request cannot be send.
+  * `{:error, reason}` if the request cannot be sent.
 
   Sends a message to the exchange rate retrieval process for each
   date in the range `from`..`to` to request historic rates be
@@ -162,7 +162,7 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Updated the configuration for the Exchange Rate
+  Updates the configuration for the Exchange Rate
   Service
 
   """
@@ -171,7 +171,7 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Return the current configuration of the Exchange Rates
+  Returns the current configuration of the Exchange Rates
   Retrieval service
 
   """
@@ -184,7 +184,7 @@ defmodule Money.ExchangeRates.Retriever do
   service.
 
   This function is primarily intended for use by
-  an exchange rates api module.
+  an exchange rates API module.
   """
   def retrieve_rates(url, config) when is_binary(url) do
     url

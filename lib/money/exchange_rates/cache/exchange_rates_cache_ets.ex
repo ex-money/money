@@ -1,7 +1,7 @@
 defmodule Money.ExchangeRates.Cache.Ets do
   @moduledoc """
   Money.ExchangeRates.Cache implementation for
-  :ets and :dets
+  :ets
   """
 
   @behaviour Money.ExchangeRates.Cache

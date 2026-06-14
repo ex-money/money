@@ -4,7 +4,7 @@ defmodule Money.ExchangeRates do
   from an exchange rate service.
 
   Configuration for the exchange rate service is defined
-  in a `Money.ExchangeRates.Config` struct.  A default
+  in a `Money.ExchangeRates.Config` struct. A default
   configuration is returned by `Money.ExchangeRates.default_config/0`.
 
   The default configuration is:
@@ -19,11 +19,11 @@ defmodule Money.ExchangeRates do
         log_info: :info,
         log_success: nil
 
-  These keys are are defined as follows:
+  These keys are defined as follows:
 
   * `:auto_start_exchange_rate_service` is a boolean that determines whether to
     automatically start the exchange rate retrieval service.
-    The default it false.
+    The default is false.
 
   * `:exchange_rates_retrieve_every` defines how often the exchange
     rates are retrieved in milliseconds. The default is 5 minutes
@@ -39,17 +39,17 @@ defmodule Money.ExchangeRates do
     `rates_retrieved/2` is invoked after every successful retrieval
     of exchange rates. The default is `Money.ExchangeRates.Callback`.
 
-  * `:preload_historic_rates` defines a date or a date range,
+  * `:preload_historic_rates` defines a date or a date range
     that will be requested when the exchange rate service starts up.
     The date or date range should be specified as either a `Date.t`
     or a `Date.Range.t` or a tuple of `{Date.t, Date.t}` representing
     the `from` and `to` dates for the rates to be retrieved. The
     default is `nil` meaning no historic rates are preloaded.
 
-  * `:log_failure` defines the log level at which api retrieval
+  * `:log_failure` defines the log level at which API retrieval
     errors are logged. The default is `:warning`.
 
-  * `:log_success` defines the log level at which successful api
+  * `:log_success` defines the log level at which successful API
     retrieval notifications are logged. The default is `nil` which
     means no logging.
 
@@ -58,8 +58,8 @@ defmodule Money.ExchangeRates do
 
   * `:retriever_options` is available for exchange rate retriever
     module developers as a place to add retriever-specific configuration
-    information.  This information should be added in the `init/1`
-    callback in the retriever module.  See `Money.ExchangeRates.OpenExchangeRates.init/1`
+    information. This information should be added in the `init/1`
+    callback in the retriever module. See `Money.ExchangeRates.OpenExchangeRates.init/1`
     for an example.
 
   Keys can also be configured to retrieve values from environment
@@ -77,7 +77,7 @@ defmodule Money.ExchangeRates do
   ## Open Exchange Rates
 
   If you plan to use the provided Open Exchange Rates module
-  to retrieve exchange rates then you should also provide the additional
+  to retrieve exchange rates, then you should also provide the additional
   configuration key for `app_id`:
 
       config :ex_money,
@@ -90,15 +90,15 @@ defmodule Money.ExchangeRates do
 
   The default exchange rate retrieval module is provided in
   `Money.ExchangeRates.OpenExchangeRates` which can be used
-  as a example to implement your own retrieval module for
+  as an example to implement your own retrieval module for
   other services.
 
   ## Managing the configuration at runtime
 
   During exchange rate service startup, the function `init/1` is called
-  on the configuration exchange rate retrieval module.  This module is
+  on the configuration exchange rate retrieval module. This module is
   expected to return an updated configuration allowing a developer to
-  customise how the configuration is to be managed.  See the implementation
+  customise how the configuration is to be managed. See the implementation
   at `Money.ExchangeRates.OpenExchangeRates.init/1` for an example.
 
   """
@@ -110,7 +110,7 @@ defmodule Money.ExchangeRates do
   Invoked to return the latest exchange rates from the configured
   exchange rate retrieval service.
 
-  * `config` is an `%Money.ExchangeRataes.Config{}` struct
+  * `config` is an `%Money.ExchangeRates.Config{}` struct
 
   Returns `{:ok, map_of_rates}` or `{:error, reason}`
 
@@ -122,7 +122,9 @@ defmodule Money.ExchangeRates do
   Invoked to return the historic exchange rates from the configured
   exchange rate retrieval service.
 
-  * `config` is an `%Money.ExchangeRataes.Config{}` struct
+  * `date` is a `Date.t()` used to identify the date for which rates are requested
+
+  * `config` is an `%Money.ExchangeRates.Config{}` struct
 
   Returns `{:ok, map_of_historic_rates}` or `{:error, reason}`
 
@@ -132,7 +134,7 @@ defmodule Money.ExchangeRates do
 
   @doc """
   Decode the body returned from the API request and
-  return a map of rates.  THe map of rates must have
+  return a map of rates. The map of rates must have
   an upcased atom key representing an ISO 4217 currency
   code and the value must be a Decimal number.
   """
@@ -142,13 +144,13 @@ defmodule Money.ExchangeRates do
   Given the default configuration, returns an updated configuration at runtime
   during exchange rates service startup.
 
-  This callback is optional.  If the callback is not defined, the default
+  This callback is optional. If the callback is not defined, the default
   configuration returned by `Money.ExchangeRates.default_config/0` is used.
 
   * `config` is the configuration returned by `Money.ExchangeRates.default_config/0`
 
   The callback is expected to return a `%Money.ExchangeRates.Config.t()` struct
-  which may have been updated.  The configuration key `:retriever_options` is
+  which may have been updated. The configuration key `:retriever_options` is
   available for any service-specific configuration.
 
   """
@@ -224,17 +226,17 @@ defmodule Money.ExchangeRates do
   end
 
   @doc """
-  Return the latest exchange rates.
+  Returns the latest exchange rates.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are successfully retrieved.  `rates` is a map of
+  * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
     exchange rates.
 
   * `{:error, reason}` if no exchange rates can be returned.
 
-  This function looks up the latest exchange rates in a an ETS table
-  called `:exchange_rates`.  The actual retrieval of rates is requested
+  This function looks up the latest exchange rates in an ETS table
+  called `:exchange_rates`. The actual retrieval of rates is requested
   through `Money.ExchangeRates.Retriever.latest_rates/0`.
 
   """
@@ -252,22 +254,22 @@ defmodule Money.ExchangeRates do
   end
 
   @doc """
-  Return historic exchange rates.
+  Returns historic exchange rates.
 
   * `date` is a date returned by `Date.new/3` or any struct with the
     elements `:year`, `:month` and `:day`.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are successfully retrieved.  `rates` is a map of
+  * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
     exchange rates.
 
   * `{:error, reason}` if no exchange rates can be returned.
 
-  **Note;** all dates are expected to be in the Calendar.ISO calendar
+  **Note:** All dates are expected to be in the Calendar.ISO calendar.
 
-  This function looks up the historic exchange rates in a an ETS table
-  called `:exchange_rates`.  The actual retrieval of rates is requested
+  This function looks up the historic exchange rates in an ETS table
+  called `:exchange_rates`. The actual retrieval of rates is requested
   through `Money.ExchangeRates.Retriever.historic_rates/1`.
 
   """
@@ -286,7 +288,7 @@ defmodule Money.ExchangeRates do
 
   @doc """
   Returns `true` if the latest exchange rates are available
-  and false otherwise.
+  and `false` otherwise.
   """
   @spec latest_rates_available?() :: boolean
   def latest_rates_available? do
@@ -302,7 +304,7 @@ defmodule Money.ExchangeRates do
   end
 
   @doc """
-  Return the timestamp of the last successful retrieval of exchange rates or
+  Returns the timestamp of the last successful retrieval of exchange rates or
   `{:error, reason}` if no timestamp is known.
 
   ## Example

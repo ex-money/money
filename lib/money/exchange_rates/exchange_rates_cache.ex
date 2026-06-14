@@ -1,6 +1,6 @@
 defmodule Money.ExchangeRates.Cache do
   @moduledoc """
-  Defines a cache behaviour and default inplementation
+  Defines a cache behaviour and default implementation
   of a cache for exchange rates
   """
 
@@ -11,7 +11,7 @@ defmodule Money.ExchangeRates.Cache do
   @callback init() :: any()
 
   @doc """
-  Terminate the cache when the retriver process
+  Terminate the cache when the retriever process
   stops normally
   """
   @callback terminate() :: any()
@@ -23,7 +23,7 @@ defmodule Money.ExchangeRates.Cache do
   @callback latest_rates() :: {:ok, map()} | {:error, {Exception.t(), String.t()}}
 
   @doc """
-  Returns the exchange rates for a given
+  Retrieve the exchange rates for a given
   date.
   """
   @callback historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), String.t()}}

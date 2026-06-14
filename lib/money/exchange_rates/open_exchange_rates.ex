@@ -6,7 +6,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   ## Required configuration:
 
   The configuration key `:open_exchange_rates_app_id` should be
-  set to your `app_id`.  for example:
+  set to your `app_id`. For example:
 
       config :ex_money,
         open_exchange_rates_app_id: "your_app_id"
@@ -33,7 +33,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   @doc """
   Update the retriever configuration to include the requirements
-  for Open Exchange Rates.  This function is invoked when the
+  for Open Exchange Rates. This function is invoked when the
   exchange rate service starts up, just after the ets table
   :exchange_rates is created.
 
@@ -71,8 +71,8 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   Retrieves the latest exchange rates from Open Exchange Rates site.
 
   * `config` is the retrieval configuration. When invoked from the
-  exchange rates services this will be the config returned from
-  `Money.ExchangeRates.config/0`
+    exchange rates service this will be the config returned from
+    `Money.ExchangeRates.config/0`
 
   Returns:
 
@@ -108,7 +108,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
     elements `:year`, `:month` and `:day`.
 
   * `config` is the retrieval configuration. When invoked from the
-    exchange rates services this will be the config returned from
+    exchange rates service this will be the config returned from
     `Money.ExchangeRates.config/0`
 
   Returns:
@@ -149,6 +149,6 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   defp app_id_not_configured do
-    "Open Exchange Rates app_id is not configured.  Rates are not retrieved."
+    "Open Exchange Rates app_id is not configured. Rates are not retrieved."
   end
 end
