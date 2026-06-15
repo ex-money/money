@@ -17,8 +17,6 @@ defmodule Money.ExchangeRates.Retriever do
   use GenServer
   require Logger
 
-  @etag_cache :etag_cache
-
   @doc """
   Starts the exchange rates retrieval service
   """
@@ -176,77 +174,30 @@ defmodule Money.ExchangeRates.Retriever do
     GenServer.call(__MODULE__, :config)
   end
 
-  @doc """
-  Retrieve exchange rates from an external HTTP
-  service.
-
-  This function is primarily intended for use by
-  an exchange rates API module.
-  """
-  def retrieve_rates(url, config) when is_binary(url) do
+  @doc deprecated:
+         "Use `Money.ExchangeRates.HTTP` or the HTTP client of your preference directly instead"
+  def retrieve_rates(url, config) when is_list(url) do
     url
-    |> String.to_charlist()
+    |> List.to_string()
     |> retrieve_rates(config)
   end
 
-  def retrieve_rates(url, config) when is_list(url) do
-    url = List.to_string(url)
-    headers = if_none_match_header(url)
-    http_client = Money.get_env(:exchange_rates_http_client, Localize.Utils.Http, :module)
-
-    {url, headers}
-    |> http_client.get_with_headers(verify_peer: Map.get(config, :verify_peer, true))
-    |> process_response(url, config)
+  def retrieve_rates(url, config) when is_binary(url) do
+    url
+    |> Money.ExchangeRates.HTTP.get(verify_peer: Map.get(config, :verify_peer, true))
+    |> process_response(config)
   end
 
-  defp process_response({:ok, headers, body}, url, config) do
-    rates = config.api_module.decode_rates(body)
-    cache_etag(headers, url)
-    {:ok, rates}
+  defp process_response({:ok, body}, config) when is_binary(body) or is_list(body) do
+    {:ok, config.api_module.decode_rates(body)}
   end
 
-  defp process_response({:not_modified, headers}, url, _config) do
-    cache_etag(headers, url)
+  defp process_response({:ok, :not_modified}, _config) do
     {:ok, :not_modified}
   end
 
-  defp process_response({:error, reason}, _url, _config) do
-    {:error, {Money.ExchangeRateError, "#{inspect(reason)}"}}
-  end
-
-  defp if_none_match_header(url) do
-    case get_etag(url) do
-      {etag, date} ->
-        [
-          {String.to_charlist("If-None-Match"), etag},
-          {String.to_charlist("If-Modified-Since"), date}
-        ]
-
-      _ ->
-        []
-    end
-  end
-
-  defp cache_etag(headers, url) do
-    etag = :proplists.get_value(String.to_charlist("etag"), headers)
-    date = :proplists.get_value(String.to_charlist("date"), headers)
-
-    if etag?(etag, date) do
-      :ets.insert(@etag_cache, {url, {etag, date}})
-    else
-      :ets.delete(@etag_cache, url)
-    end
-  end
-
-  defp get_etag(url) do
-    case :ets.lookup(@etag_cache, url) do
-      [{^url, cached_value}] -> cached_value
-      [] -> nil
-    end
-  end
-
-  defp etag?(etag, date) do
-    etag != :undefined && date != :undefined
+  defp process_response({:error, reason}, _config) do
+    {:error, reason}
   end
 
   #
@@ -266,10 +217,6 @@ defmodule Money.ExchangeRates.Retriever do
     if config.preload_historic_rates do
       log(config, :info, "Preloading historic rates for #{inspect(config.preload_historic_rates)}")
       schedule_work(config.preload_historic_rates, config.cache_module)
-    end
-
-    if :ets.info(@etag_cache) == :undefined do
-      :ets.new(@etag_cache, [:named_table, :public])
     end
 
     {:ok, config}

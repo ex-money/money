@@ -7,6 +7,7 @@ defmodule Money.ExchangeRatesMock do
   @latest_endpoint "/latest.json"
   @latest_url @exr_url <> @latest_endpoint <> "?app_id=" <> @app_id
 
+  @impl true
   def init(config) do
     url = @latest_url
     app_id = @app_id
@@ -18,10 +19,12 @@ defmodule Money.ExchangeRatesMock do
     Money.ExchangeRates.OpenExchangeRates.decode_rates(rates)
   end
 
+  @impl true
   def get_latest_rates(_config) do
     get_rates(@latest_url)
   end
 
+  @impl true
   def get_historic_rates(~D[2017-01-01], _config) do
     {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}}
   end

@@ -25,7 +25,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   """
 
-  alias Money.ExchangeRates.Retriever
+  alias Money.ExchangeRates.HTTP
 
   @behaviour Money.ExchangeRates
 
@@ -50,16 +50,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
     Map.put(default_config, :retriever_options, %{url: url, app_id: app_id})
   end
 
-  @doc """
-  Decodes the JSON body returned by the Open Exchange Rates API.
-
-  * `body` is the raw response body as a binary or charlist.
-
-  Returns:
-
-  * A map of currency code atoms to `Decimal` exchange rate values.
-  """
-  @impl true
+  @doc false
   def decode_rates(body) when is_list(body) do
     body
     |> List.to_string()
@@ -89,6 +80,8 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   * `{:ok, rates}` if the rates can be retrieved
 
+  * `{:ok, :not_modified}` if the rates are unchanged since the last retrieval
+
   * `{:error, reason}` if rates cannot be retrieved
 
   Typically this function is called by the exchange rates retrieval
@@ -109,7 +102,11 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   @latest_rates "/latest.json"
   defp retrieve_latest_rates(url, app_id, config) do
-    Retriever.retrieve_rates(url <> @latest_rates <> "?app_id=" <> app_id, config)
+    case HTTP.get(url <> @latest_rates <> "?app_id=" <> app_id, verify_peer: config.verify_peer) do
+      {:ok, :not_modified} -> {:ok, :not_modified}
+      {:ok, response} -> {:ok, decode_rates(response)}
+      error -> error
+    end
   end
 
   @doc """
@@ -124,6 +121,8 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   Returns:
 
   * `{:ok, rates}` if the rates can be retrieved
+
+  * `{:ok, :not_modified}` if the rates are unchanged since the last retrieval
 
   * `{:error, reason}` if rates cannot be retrieved
 
@@ -143,18 +142,15 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   @historic_rates "/historical/"
-  defp retrieve_historic_rates(%Date{calendar: Calendar.ISO} = date, url, app_id, config) do
+  defp retrieve_historic_rates(date, url, app_id, config) do
     date_string = Date.to_string(date)
 
-    Retriever.retrieve_rates(
-      url <> @historic_rates <> "#{date_string}.json" <> "?app_id=" <> app_id,
-      config
-    )
-  end
-
-  defp retrieve_historic_rates(%{year: year, month: month, day: day}, url, app_id, config) do
-    case Date.new(year, month, day) do
-      {:ok, date} -> retrieve_historic_rates(date, url, app_id, config)
+    case HTTP.get(
+           url <> @historic_rates <> "#{date_string}.json" <> "?app_id=" <> app_id,
+           verify_peer: config.verify_peer
+         ) do
+      {:ok, :not_modified} -> {:ok, :not_modified}
+      {:ok, response} -> {:ok, decode_rates(response)}
       error -> error
     end
   end

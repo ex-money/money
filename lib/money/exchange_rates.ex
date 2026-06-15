@@ -113,11 +113,12 @@ defmodule Money.ExchangeRates do
 
   * `config` is an `%Money.ExchangeRates.Config{}` struct
 
-  Returns `{:ok, map_of_rates}` or `{:error, reason}`
+  Returns `{:ok, map_of_rates}`, `{:ok, :not_modified}` if the rates
+  are unchanged since the last retrieval, or `{:error, reason}`.
 
   """
   @callback get_latest_rates(config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, map()} | {:error, binary}
+              {:ok, map() | :not_modified} | {:error, binary}
 
   @doc """
   Invoked to return the historic exchange rates from the configured
@@ -127,19 +128,12 @@ defmodule Money.ExchangeRates do
 
   * `config` is an `%Money.ExchangeRates.Config{}` struct
 
-  Returns `{:ok, map_of_historic_rates}` or `{:error, reason}`
+  Returns `{:ok, map_of_historic_rates}`, `{:ok, :not_modified}` if the
+  rates are unchanged since the last retrieval, or `{:error, reason}`.
 
   """
   @callback get_historic_rates(Date.t(), config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, map()} | {:error, binary}
-
-  @doc """
-  Decode the body returned from the API request and
-  return a map of rates. The map of rates must have
-  an upcased atom key representing an ISO 4217 currency
-  code and the value must be a Decimal number.
-  """
-  @callback decode_rates(any) :: map()
+              {:ok, map() | :not_modified} | {:error, binary}
 
   @doc """
   Given the default configuration, returns an updated configuration at runtime

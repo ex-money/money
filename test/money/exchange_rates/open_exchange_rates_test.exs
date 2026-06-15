@@ -60,18 +60,6 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
     end
   end
 
-  describe "decode_rates/1" do
-    test "decodes a JSON body into the rates map" do
-      json = ~c({"base":"USD","rates":{"EUR":0.9,"AUD":1.5,"USD":1}})
-
-      assert OpenExchangeRates.decode_rates(json) == %{
-               EUR: Decimal.from_float(0.9),
-               AUD: Decimal.from_float(1.5),
-               USD: Decimal.new(1)
-             }
-    end
-  end
-
   describe "get_latest_rates/1" do
     setup do: %{config: init_config()}
 
