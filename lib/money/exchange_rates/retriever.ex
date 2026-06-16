@@ -104,7 +104,7 @@ defmodule Money.ExchangeRates.Retriever do
   def historic_rates(%Date{calendar: Calendar.ISO} = date) do
     case Process.whereis(__MODULE__) do
       nil -> {:error, exchange_rate_service_error()}
-      _pid -> GenServer.call(__MODULE__, {:historic_rates, date})
+      pid -> GenServer.call(pid, {:historic_rates, date})
     end
   end
 
@@ -115,8 +115,11 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  def historic_rates(%Date.Range{first: from, last: to}) do
-    historic_rates(from, to)
+  def historic_rates(%Date.Range{} = range) do
+    case Process.whereis(__MODULE__) do
+      nil -> {:error, exchange_rate_service_error()}
+      _pid -> for date <- range, do: historic_rates(date)
+    end
   end
 
   @doc """
@@ -137,22 +140,49 @@ defmodule Money.ExchangeRates.Retriever do
   retrieved.
 
   """
-  def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        {:error, exchange_rate_service_error()}
 
-      _pid ->
-        for date <- Date.range(from, to) do
-          historic_rates(date)
-        end
-    end
+  def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
+    range = Date.range(from, to)
+    historic_rates(range)
   end
 
   def historic_rates(%{year: y1, month: m1, day: d1}, %{year: y2, month: m2, day: d2}) do
     with {:ok, from} <- Date.new(y1, m1, d1),
          {:ok, to} <- Date.new(y2, m2, d2) do
       historic_rates(from, to)
+    end
+  end
+
+  @doc """
+  Returns `true` if the latest exchange rates are available in the cache,
+  `false` otherwise.
+
+  Returns `false` when the retriever is not running, even if the cache table
+  still exists.
+  """
+  @spec latest_rates_available?() :: boolean
+  def latest_rates_available? do
+    case Process.whereis(__MODULE__) do
+      nil -> false
+      pid -> GenServer.call(pid, :latest_rates_available?)
+    end
+  end
+
+  @doc """
+  Returns the timestamp of the last successful exchange rate retrieval.
+
+  Returns:
+
+  * `{:ok, datetime}` if rates have been retrieved at least once.
+
+  * `{:error, reason}` if the retriever is not running or no retrieval has
+    occurred yet.
+
+  """
+  def last_updated do
+    case Process.whereis(__MODULE__) do
+      nil -> {:error, exchange_rate_service_error()}
+      pid -> GenServer.call(pid, :last_updated)
     end
   end
 
@@ -247,6 +277,14 @@ defmodule Money.ExchangeRates.Retriever do
     {:reply, retrieve_historic_rates(date, config), config}
   end
 
+  def handle_call(:latest_rates_available?, _from, config) do
+    {:reply, match?({:ok, _rates}, config.cache_module.latest_rates()), config}
+  end
+
+  def handle_call(:last_updated, _from, config) do
+    {:reply, config.cache_module.last_updated(), config}
+  end
+
   @doc false
   def handle_call({:reconfigure, new_configuration}, _from, config) do
     config.cache_module.terminate()
@@ -271,7 +309,7 @@ defmodule Money.ExchangeRates.Retriever do
 
   @doc false
   def handle_info(:latest_rates, config) do
-    retrieve_latest_rates(config)
+    fetch_latest_rates(config)
     schedule_work(config.retrieve_every)
     {:noreply, config}
   end
@@ -298,16 +336,23 @@ defmodule Money.ExchangeRates.Retriever do
     {:noreply, config}
   end
 
-  defp retrieve_latest_rates(%{callback_module: callback_module} = config) do
+  defp retrieve_latest_rates(config) do
+    case config.cache_module.latest_rates() do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _reason} -> fetch_latest_rates(config)
+    end
+  end
+
+  defp fetch_latest_rates(config) do
     case config.api_module.get_latest_rates(config) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
-        {:ok, config.cache_module.latest_rates()}
+        config.cache_module.latest_rates()
 
       {:ok, rates} ->
         retrieved_at = DateTime.utc_now()
         config.cache_module.store_latest_rates(rates, retrieved_at)
-        apply(callback_module, :latest_rates_retrieved, [rates, retrieved_at])
+        apply(config.callback_module, :latest_rates_retrieved, [rates, retrieved_at])
         log(config, :success, "Retrieved latest exchange rates successfully")
         {:ok, rates}
 
@@ -317,15 +362,22 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp retrieve_historic_rates(date, %{callback_module: callback_module} = config) do
+  defp retrieve_historic_rates(date, config) do
+    case config.cache_module.historic_rates(date) do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _reason} -> fetch_historic_rates(date, config)
+    end
+  end
+
+  defp fetch_historic_rates(date, config) do
     case config.api_module.get_historic_rates(date, config) do
       {:ok, :not_modified} ->
-        log(config, :success, "Historic exchange rates for #{Date.to_string(date)} are unchanged")
-        {:ok, config.cache_module.historic_rates(date)}
+        log(config, :success, "Historic exchange rates for #{Date.to_string(date)} unchanged")
+        config.cache_module.historic_rates(date)
 
       {:ok, rates} ->
         config.cache_module.store_historic_rates(rates, date)
-        apply(callback_module, :historic_rates_retrieved, [rates, date])
+        apply(config.callback_module, :historic_rates_retrieved, [rates, date])
 
         log(
           config,

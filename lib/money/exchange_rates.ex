@@ -152,7 +152,6 @@ defmodule Money.ExchangeRates do
   @callback init(config :: Money.ExchangeRates.Config.t()) :: Money.ExchangeRates.Config.t()
   @optional_callbacks init: 1
 
-  import Money.ExchangeRates.Cache
   alias Money.ExchangeRates.Retriever
 
   @default_retrieval_interval :never
@@ -237,15 +236,7 @@ defmodule Money.ExchangeRates do
   """
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def latest_rates do
-    try do
-      case cache().latest_rates() do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.latest_rates()
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
+    Retriever.latest_rates()
   end
 
   @doc """
@@ -268,16 +259,10 @@ defmodule Money.ExchangeRates do
 
   """
   @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Date.Range.t()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
   def historic_rates(date) do
-    try do
-      case cache().historic_rates(date) do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.historic_rates(date)
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
+    Retriever.historic_rates(date)
   end
 
   @doc """
@@ -286,15 +271,7 @@ defmodule Money.ExchangeRates do
   """
   @spec latest_rates_available?() :: boolean
   def latest_rates_available? do
-    try do
-      case cache().latest_rates() do
-        {:ok, _rates} -> true
-        _ -> false
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        false
-    end
+    Retriever.latest_rates_available?()
   end
 
   @doc """
@@ -312,15 +289,6 @@ defmodule Money.ExchangeRates do
   """
   @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated do
-    try do
-      cache().last_updated()
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
-  end
-
-  defp no_retriever_running_error do
-    {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}
+    Retriever.last_updated()
   end
 end

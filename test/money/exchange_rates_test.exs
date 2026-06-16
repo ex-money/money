@@ -54,7 +54,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.latest_rates() ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "returns error when retriever stops even if cache has rates" do
@@ -65,7 +65,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.latest_rates() ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "invokes latest_rates_retrieved callback after retrieval" do
@@ -98,7 +98,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "returns error when retriever stops even if cache has rates" do
@@ -109,7 +109,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "invokes historic_rates_retrieved callback after retrieval" do
@@ -169,7 +169,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.last_updated() ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "returns error when retriever stops even if timestamp is cached" do
@@ -181,7 +181,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.last_updated() ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
   end
 
