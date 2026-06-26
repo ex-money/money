@@ -9,7 +9,7 @@ defmodule Money.ExchangeRatesHttpMock do
   end
 
   def get_with_headers({"http://success.example.com", headers}, _opts) do
-    if :proplists.get_value(~c"If-None-Match", headers) == :undefined do
+    if :proplists.get_value(~c"if-none-match", headers) == :undefined do
       {:ok, @response_headers, @rates_body}
     else
       {:not_modified, @response_headers}

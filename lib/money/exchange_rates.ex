@@ -10,7 +10,6 @@ defmodule Money.ExchangeRates do
   The default configuration is:
 
       config :ex_money,
-        auto_start_exchange_rate_service: false,
         exchange_rates_retrieve_every: 300_000,
         api_module: Money.ExchangeRates.OpenExchangeRates,
         callback_module: Money.ExchangeRates.Callback,
@@ -20,10 +19,6 @@ defmodule Money.ExchangeRates do
         log_success: nil
 
   These keys are defined as follows:
-
-  * `:auto_start_exchange_rate_service` is a boolean that determines whether to
-    automatically start the exchange rate retrieval service.
-    The default is false.
 
   * `:exchange_rates_retrieve_every` defines how often the exchange
     rates are retrieved in milliseconds. The default is 5 minutes
@@ -72,7 +67,6 @@ defmodule Money.ExchangeRates do
   An example configuration might be:
 
       config :ex_money,
-        auto_start_exchange_rate_service: {:system, "RATE_SERVICE"},
         exchange_rates_retrieve_every: {:system, "RETRIEVE_EVERY"},
 
   ## Open Exchange Rates
@@ -113,11 +107,12 @@ defmodule Money.ExchangeRates do
 
   * `config` is an `%Money.ExchangeRates.Config{}` struct
 
-  Returns `{:ok, map_of_rates}` or `{:error, reason}`
+  Returns `{:ok, map_of_rates}`, `{:ok, :not_modified}` if the rates
+  are unchanged since the last retrieval, or `{:error, reason}`.
 
   """
   @callback get_latest_rates(config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, map()} | {:error, binary}
+              {:ok, map() | :not_modified} | {:error, binary}
 
   @doc """
   Invoked to return the historic exchange rates from the configured
@@ -127,19 +122,12 @@ defmodule Money.ExchangeRates do
 
   * `config` is an `%Money.ExchangeRates.Config{}` struct
 
-  Returns `{:ok, map_of_historic_rates}` or `{:error, reason}`
+  Returns `{:ok, map_of_historic_rates}`, `{:ok, :not_modified}` if the
+  rates are unchanged since the last retrieval, or `{:error, reason}`.
 
   """
   @callback get_historic_rates(Date.t(), config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, map()} | {:error, binary}
-
-  @doc """
-  Decode the body returned from the API request and
-  return a map of rates. The map of rates must have
-  an upcased atom key representing an ISO 4217 currency
-  code and the value must be a Decimal number.
-  """
-  @callback decode_rates(any) :: map()
+              {:ok, map() | :not_modified} | {:error, binary}
 
   @doc """
   Given the default configuration, returns an updated configuration at runtime
@@ -158,7 +146,6 @@ defmodule Money.ExchangeRates do
   @callback init(config :: Money.ExchangeRates.Config.t()) :: Money.ExchangeRates.Config.t()
   @optional_callbacks init: 1
 
-  import Money.ExchangeRates.Cache
   alias Money.ExchangeRates.Retriever
 
   @default_retrieval_interval :never
@@ -243,15 +230,7 @@ defmodule Money.ExchangeRates do
   """
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def latest_rates do
-    try do
-      case cache().latest_rates() do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.latest_rates()
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
+    Retriever.latest_rates()
   end
 
   @doc """
@@ -274,16 +253,10 @@ defmodule Money.ExchangeRates do
 
   """
   @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Date.Range.t()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
   def historic_rates(date) do
-    try do
-      case cache().historic_rates(date) do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.historic_rates(date)
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
+    Retriever.historic_rates(date)
   end
 
   @doc """
@@ -292,15 +265,7 @@ defmodule Money.ExchangeRates do
   """
   @spec latest_rates_available?() :: boolean
   def latest_rates_available? do
-    try do
-      case cache().latest_rates() do
-        {:ok, _rates} -> true
-        _ -> false
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        false
-    end
+    Retriever.latest_rates_available?()
   end
 
   @doc """
@@ -318,15 +283,6 @@ defmodule Money.ExchangeRates do
   """
   @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated do
-    try do
-      cache().last_updated()
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
-  end
-
-  defp no_retriever_running_error do
-    {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}
+    Retriever.last_updated()
   end
 end

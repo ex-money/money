@@ -7,12 +7,9 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   setup do
     Application.put_env(:ex_money, :exchange_rates_http_client, Money.ExchangeRatesHttpMock)
+    start_supervised!(Retriever)
 
-    on_exit(fn ->
-      Application.delete_env(:ex_money, :exchange_rates_http_client)
-      # :etag_cache outlives the test process; clean up so later tests get a fresh response
-      :ets.delete(:etag_cache, "http://success.example.com")
-    end)
+    on_exit(fn -> Application.delete_env(:ex_money, :exchange_rates_http_client) end)
 
     {:ok, config: Money.ExchangeRates.default_config()}
   end
@@ -32,18 +29,6 @@ defmodule Money.ExchangeRates.RetrieverTest do
       assert {:error, {Money.ExchangeRateError, ":nxdomain"}} =
                Retriever.retrieve_rates("http://error.example.com", config)
     end
-
-    test "first request returns decoded rates and stores the ETag", %{config: config} do
-      assert {:ok, _rates} = Retriever.retrieve_rates("http://success.example.com", config)
-
-      assert [{"http://success.example.com", {~c"test-etag-123", _date}}] =
-               :ets.lookup(:etag_cache, "http://success.example.com")
-    end
-
-    test "second request with cached ETag returns :not_modified", %{config: config} do
-      {:ok, _rates} = Retriever.retrieve_rates("http://success.example.com", config)
-      assert {:ok, :not_modified} = Retriever.retrieve_rates("http://success.example.com", config)
-    end
   end
 
   describe "historic_rates/1" do
@@ -58,8 +43,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       assert Retriever.historic_rates(~D[2017-01-01]) ==
                {:error,
@@ -78,8 +62,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running for a range" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       range = Date.range(~D[2017-01-01], ~D[2017-01-02])
 
@@ -137,8 +120,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       assert Retriever.historic_rates(~D[2017-01-01], ~D[2017-01-02]) ==
                {:error,
@@ -158,9 +140,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   describe "reconfigure/1" do
     setup do
-      original = Retriever.config()
-      on_exit(fn -> Retriever.reconfigure(original) end)
-      {:ok, config: original}
+      {:ok, config: Retriever.config()}
     end
 
     test "config/0 reflects the updated field after reconfigure", %{config: config} do

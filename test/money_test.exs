@@ -1,11 +1,16 @@
 defmodule MoneyTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   use ExUnitProperties
 
   import ExUnit.CaptureLog
   alias Money.Financial
 
   doctest Money
+
+  setup_all do
+    start_supervised!(Money.ExchangeRates.Retriever)
+    :ok
+  end
 
   test "create a new money struct with a binary currency code" do
     money = Money.new(1234, "USD")
@@ -583,6 +588,14 @@ defmodule MoneyTest do
     assert_raise Money.UnknownCurrencyError, ~r/The currency .* is not known/, fn ->
       ~M[42]ABD
     end
+  end
+
+  test "that we get a deprecation message if we use :auto_start_exchange_rate_service option" do
+    Application.put_env(:ex_money, :auto_start_exchange_rate_service, true)
+
+    assert capture_log(fn ->
+             Money.Application.maybe_log_deprecation()
+           end) =~ "Automatically starting the exchange rate service is deprecated"
   end
 
   test "that we get a deprecation message if we use :exchange_rate_service keywork option" do

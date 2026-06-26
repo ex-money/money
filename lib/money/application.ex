@@ -1,14 +1,11 @@
 defmodule Money.Application do
   use Application
-  alias Money.ExchangeRates
   require Logger
-
-  @auto_start :auto_start_exchange_rate_service
 
   def start(_type, args) do
     children = [
-      Money.Currency.Store,
-      Money.ExchangeRates.Supervisor
+      Money.Currency.Store
+      | exchange_rate_supervisor()
     ]
 
     opts =
@@ -22,31 +19,17 @@ defmodule Money.Application do
 
     register_custom_currencies()
 
-    if start_exchange_rate_service?() do
-      ExchangeRates.Supervisor.start_retriever()
-    end
-
     supervisor
   end
 
-  # Default is to not start the exchange rate service
-  defp start_exchange_rate_service? do
+  defp exchange_rate_supervisor do
     maybe_log_deprecation()
 
-    start? = Money.get_env(@auto_start, true, :boolean)
-    api_module = ExchangeRates.default_config().api_module
-    api_module_present? = Code.ensure_loaded?(api_module)
-
-    if !api_module_present? do
-      Logger.error(
-        "[ex_money] ExchangeRates api module #{api_module_name(api_module)} could not be loaded. " <>
-          "Does it exist?"
-      )
-
-      Logger.warning("ExchangeRates service will not be started.")
+    if Money.get_env(:auto_start_exchange_rate_service, true, :boolean) do
+      [Money.ExchangeRates.Supervisor]
+    else
+      []
     end
-
-    start? && api_module_present?
   end
 
   @doc false
@@ -69,12 +52,6 @@ defmodule Money.Application do
           end
         end)
     end
-  end
-
-  defp api_module_name(name) when is_atom(name) do
-    name
-    |> Atom.to_string()
-    |> String.replace_leading("Elixir.", "")
   end
 
   @doc false
@@ -105,6 +82,25 @@ defmodule Money.Application do
 
       :error ->
         nil
+    end
+
+    case Application.fetch_env(:ex_money, :auto_start_exchange_rate_service) do
+      {:ok, true} ->
+        Logger.warning(
+          "[ex_money] Automatically starting the exchange rate service is deprecated. " <>
+            "Set `auto_start_exchange_rate_service: false` and add " <>
+            "`Money.ExchangeRates.Retriever` to your supervision tree."
+        )
+
+      {:ok, false} ->
+        nil
+
+      :error ->
+        Logger.warning(
+          "[ex_money] Automatically starting the exchange rate service is deprecated. " <>
+            "Set `auto_start_exchange_rate_service: false` and, if you use the service, " <>
+            "add `Money.ExchangeRates.Retriever` to your supervision tree."
+        )
     end
   end
 end

@@ -4,16 +4,8 @@ defmodule Money.ExchangeRates.SupervisorTest do
   alias Money.ExchangeRates.Supervisor
 
   setup do
-    on_exit(fn ->
-      # The application starts the Retriever by default. Each test may leave it in a
-      # different state, so restore :running after every test so the next test's
-      # setup begins from a known state.
-      case Supervisor.retriever_status() do
-        :running -> :ok
-        :stopped -> Supervisor.restart_retriever()
-        :not_started -> Supervisor.start_retriever()
-      end
-    end)
+    start_supervised!(Money.ExchangeRates.Supervisor)
+    :ok
   end
 
   describe "start_retriever/1" do

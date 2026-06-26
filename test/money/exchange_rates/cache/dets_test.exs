@@ -11,12 +11,7 @@ defmodule Money.ExchangeRates.Cache.DetsTest do
   setup do
     Dets.init()
 
-    on_exit(fn ->
-      # Remove any :latest_rates written during this test so the shared ETS table
-      # does not contaminate other test modules that call Money.ExchangeRates.latest_rates/0
-      :ets.delete(:exchange_rates, :latest_rates)
-      Dets.terminate()
-    end)
+    on_exit(fn -> Dets.terminate() end)
 
     :ok
   end

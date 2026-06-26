@@ -152,7 +152,7 @@ Localize.Number.to_string(1234, currency: :USD)
 
 `Money` starts a supervisor `Money.Supervisor` by default unless the dependency is configured as `runtime: false` in `mix.exs`. If configured as `runtime: false` then the application can be started later via `Money.Application.start(:normal, supervisor_options)` where `supervisor_options` is a keyword list of options that is given the `Supervisor.start_link/2`. The default options are `[strategy: :one_for_one, name: Money.Supervisor]`.
 
-The application supervisor is used by default to start the exchange rates service when required. The exchange rate service can be configured to run in a user defined supervision tree as explained in the next section.
+See [The Exchange rates service process supervision and startup](#the-exchange-rates-service-process-supervision-and-startup) for how to configure the exchange rate retriever.
 
 ## Private Use and Custom Currencies
 
@@ -172,7 +172,7 @@ Money.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
 
 ## Exchange rates and currency conversion
 
-Money includes a process to retrieve exchange rates on a periodic basis.  These exchange rates can then be used to support currency conversion.  This service is not started by default.  If started it will attempt to retrieve exchange rates every 5 minutes by default.
+Money includes a process to retrieve exchange rates on a periodic basis. These exchange rates can then be used to support currency conversion. It will attempt to retrieve exchange rates every 5 minutes by default.
 
 By default, exchange rates are retrieved from [Open Exchange Rates](http://openexchangerates.org) however any module that conforms to the `Money.ExchangeRates` behaviour can be configured.
 
@@ -183,7 +183,6 @@ An optional callback module can also be defined.  This module defines a `rates_r
 `Money` provides a set of configuration keys to customize behaviour. The default configuration is:
 
     config :ex_money,
-      auto_start_exchange_rate_service: true,
       exchange_rates_retrieve_every: 300_000,
       api_module: Money.ExchangeRates.OpenExchangeRates,
       callback_module: Money.ExchangeRates.Callback,
@@ -198,7 +197,7 @@ An optional callback module can also be defined.  This module defines a `rates_r
 
 ### Configuration key definitions
 
-* `:auto_start_exchange_rate_service` indicates if the exchange rate service is to be started when `ex_money` starts. The default is `true`. Set this to `false` when configuring the service to run within a different supervision tree.
+* `:auto_start_exchange_rate_service` controls whether the exchange rate retriever is started automatically when `ex_money` starts. Setting this to `true` is deprecated — see [The Exchange rates service process supervision and startup](#the-exchange-rates-service-process-supervision-and-startup) for the migration guide.
 
 * `:exchange_rates_retrieve_every` defines how often the exchange rates are retrieved in milliseconds.  The default is `:never`. An `atom` value is interpreted to mean that there should be no periodic retrieval.
 
@@ -301,7 +300,6 @@ To support runtime (re-)configuration the following functions are provided:
 Keys can also be configured to retrieve values from environment variables.  This lookup is done at runtime to facilitate deployment strategies.  If the value of a configuration key is `{:system, "some_string"}` then `"some_string"` is interpreted as an environment variable name which is passed to `System.get_env/2`.  An example configuration might be:
 
     config :ex_money,
-      auto_start_exchange_rate_service: {:system, "RATE_SERVICE"},
       exchange_rates_retrieve_every: {:system, "RETRIEVE_EVERY"},
       open_exchange_rates_app_id: {:system, "OPEN_EXCHANGE_RATES_APP_ID"}
 
@@ -309,58 +307,52 @@ Note that the `{:system, "ENV KEY"}` approach is **not** currently supported for
 
 ## The Exchange rates service process supervision and startup
 
-If the exchange rate service is configured to automatically start up (because the config key `auto_start_exchange_rate_service` is set to `true`) then a supervisor process named `Money.ExchangeRates.Supervisor` is started which in turns starts a child `GenServer` called `Money.ExchangeRates.Retriever`.  It is `Money.ExchangeRates.Retriever` which will call the configured `api_module` to retrieve the rates.  It is also responsible for calling the configured `callback_module` after a successfull retrieval.
+The exchange rate retriever is currently started automatically by `ex_money` for backward compatibility. This implicit behaviour is deprecated and will be removed in a future version.
 
-                                         +-----------------+
-                                         |                 |
-    +-------------+    +-----------+     |   api_module    |-> External Service
-    |             |    |           |---> |                 |
-    | Supervisor  |--->| Retriever |     +-----------------+
-    |             |    |           |---> +-----------------+
-    +-------------+    +-----------+     |                 |
-                                         | callback_module |
-                                         |                 |
-                                         +-----------------+
+To migrate, set `auto_start_exchange_rate_service: false` in your configuration:
 
-On application start (or manual start if `:auto_start_exchange_rate_service` is set to `false`), `Money.ExchangeRates.Retriever` will schedule the first retrieval to be executed after immediately and then each `:exchange_rates_retrieve_every` milliseconds thereafter.
+    config :ex_money,
+      auto_start_exchange_rate_service: false
+
+**If you use the exchange rate service**, also add `Money.ExchangeRates.Retriever` to your supervision tree:
+
+```elixir
+children = [
+  # ...
+  Money.ExchangeRates.Retriever
+]
+```
+
+**If you do not use the exchange rate service**, setting `auto_start_exchange_rate_service: false` is sufficient.
+
+                                    +-----------------+
+                                    |                 |
+    +-----------+                   |   api_module    |-> External Service
+    |           |-----------------> |                 |
+    | Retriever |                   +-----------------+
+    |           |-----------------> +-----------------+
+    +-----------+                   |                 |
+                                    | callback_module |
+                                    |                 |
+                                    +-----------------+
+
+On startup, `Money.ExchangeRates.Retriever` will schedule the first retrieval immediately and then every `:exchange_rates_retrieve_every` milliseconds thereafter.
 
 ## Using Ecto or other applications from within the callback module
 
-If you provide your own callback module and that module depends on some other applications, like `Ecto`, already being started then automatically starting `Money.ExchangeRates.Supervisor` may not work since your `Ecto.Repo` is unlikely to have already been started.
-
-In this situation the appropriate way to configure the exchange rates retrieval service is the following:
-
-1. Set the configuration key `auto_start_exchange_rate_service` to `false` to prevent automatic startup of the service.
-
-2. Configure your `api_module`, `callback_module` and any other required configuration as appropriate
-
-3. In your client application code, add the `Money.ExchangeRates.Supervisor` to the `children` configuration of your application.  For example, in an application that uses `Ecto` and where your `callback_module` is designed to save exchange rates to a database, your application may would look something like:
+If your callback module depends on other applications (such as `Ecto`) being started first, place `Money.ExchangeRates.Retriever` after those dependencies in your supervision tree:
 
 ```elixir
-defmodule Application do
+defmodule MyApp.Application do
   use Application
 
   def start(_type, _args) do
-    import Supervisor.Spec
-
     children = [
-
-      # Start your repo first so that it is running before your
-      # exchange rates callback module is called
-      supervisor(MoneyTest.Repo, []),
-
-      # Include the Money.ExchangeRates.Supervisor in your application's
-      # supervision tree.  This supervisor will start the child process
-      # Money.ExchangeRates.Retriever.
-
-      # Note the use of double `[]` around
-      # the parameters which are required to ensure that the supervisor
-      # is stopped before including in your supervisor tree.
-      # The `start_retriever: true` is optional.  The default value is `false`.
-      supervisor(Money.ExchangeRates.Supervisor, [[restart: true, start_retriever: true]])
+      MyApp.Repo,
+      Money.ExchangeRates.Retriever
     ]
 
-    opts = [strategy: :one_for_one, name: Application.Supervisor]
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
