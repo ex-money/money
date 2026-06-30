@@ -362,4 +362,32 @@ defmodule Money.CustomCurrencyTest do
       end
     end
   end
+
+  # ── Formatting ────────────────────────────────────────────────
+
+  describe "Money.to_string/2 with a custom currency" do
+    test "formats a custom currency using its registered symbol" do
+      ensure_currency(:XFMT, name: "Formatted", symbol: "ş", digits: 2)
+
+      assert {:ok, formatted} = Money.to_string(Money.new(:XFMT, "1234.5"))
+      assert formatted == "ş 1,234.50"
+    end
+
+    test "to_string!/2 formats a custom currency" do
+      ensure_currency(:XFMB, name: "Formatted Bang", symbol: "ß", digits: 2)
+
+      assert Money.to_string!(Money.new(:XFMB, "10")) == "ß 10.00"
+    end
+
+    test "honours the registered :digits for a custom currency" do
+      ensure_currency(:XFM4, name: "Four Digits", symbol: "Ω", digits: 4)
+
+      assert {:ok, formatted} = Money.to_string(Money.new(:XFM4, "1"))
+      assert formatted == "Ω 1.0000"
+    end
+
+    test "still formats ISO currencies via locale-aware resolution" do
+      assert {:ok, "$1,234.50"} = Money.to_string(Money.new(:USD, "1234.5"))
+    end
+  end
 end

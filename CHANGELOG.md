@@ -4,7 +4,7 @@
 
 ## Money v6.1.0
 
-This is the changelog for Money v6.1.0 released on June 26th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+This is the changelog for Money v6.1.0 released on July 1st, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
 
 ### Enhancements
 
@@ -15,6 +15,8 @@ This is the changelog for Money v6.1.0 released on June 26th, 2026. For older ch
 * `Money.ExchangeRates.HTTP` now creates its shared `:etag_cache` table race-safely, preventing a crash when multiple named retrievers issue their first request concurrently.
 
 * `Money.ExchangeRates.Retriever.config/1` and `reconfigure/2` now return `{:error, reason}` when the retriever is not running instead of exiting.
+
+* `Money.to_string/2` now formats custom and private currencies registered with `Money.Currency.new/2` by passing the stored `Localize.Currency` struct to the formatter rather than an atom code that `Localize.Currency` cannot resolve. ISO 4217 currencies continue to use locale-aware resolution.
 
 ## Money v6.0.0
 

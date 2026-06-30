@@ -785,7 +785,7 @@ defmodule Money do
   end
 
   def to_string(%Money{} = money, options) when is_list(options) do
-    default_options = [currency: money.currency]
+    default_options = [currency: currency_for_format(money.currency)]
     format_options = Map.get(money, :format_options, [])
 
     options =
@@ -805,10 +805,27 @@ defmodule Money do
       format_options
       |> Map.new()
       |> Map.merge(options)
-      |> Map.put(:currency, money.currency)
+      |> Map.put(:currency, currency_for_format(money.currency))
       |> maybe_no_fractional_digits(money)
 
     Localize.Number.to_string(money.amount, options)
+  end
+
+  # Custom and private currencies are registered at runtime in
+  # `Money.Currency.Store` and are unknown to `Localize.Currency`. When
+  # formatting one, pass the `Localize.Currency` struct directly so the
+  # number formatter uses it as-is rather than trying (and failing) to
+  # resolve the code through `Localize.Currency`. ISO 4217 codes are left
+  # as atoms so the formatter performs its normal locale-aware resolution.
+  defp currency_for_format(currency) when is_atom(currency) and not is_nil(currency) do
+    case Money.Currency.Store.get(currency) do
+      %Localize.Currency{} = custom_currency -> custom_currency
+      nil -> currency
+    end
+  end
+
+  defp currency_for_format(currency) do
+    currency
   end
 
   defp maybe_no_fractional_digits(options, money) do
