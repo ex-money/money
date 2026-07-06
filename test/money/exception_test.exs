@@ -6,7 +6,6 @@ defmodule Money.ExceptionTest do
   @message_exceptions [
     Money.UnknownCurrencyError,
     Money.InvalidCurrencyError,
-    Money.InvalidLocaleError,
     Money.FormatError,
     Money.ExchangeRateError,
     Money.InvalidAmountError,

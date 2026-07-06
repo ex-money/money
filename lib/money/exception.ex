@@ -44,15 +44,6 @@ defmodule Money.InvalidCurrencyError do
   end
 end
 
-defmodule Money.InvalidLocaleError do
-  defexception [:message]
-
-  @impl true
-  def exception(message) do
-    %__MODULE__{message: message}
-  end
-end
-
 defmodule Money.FormatError do
   defexception [:message]
 

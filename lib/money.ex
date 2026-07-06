@@ -187,7 +187,7 @@ defmodule Money do
           amount | currency_reference(),
           Keyword.t()
         ) ::
-          Money.t() | {:error, {module(), String.t()}}
+          Money.t() | {:error, {module(), String.t()}} | {:error, Exception.t()}
 
   def new(currency_code, amount, options \\ [])
 
@@ -286,39 +286,17 @@ defmodule Money do
     end
   end
 
+  # Localize exceptions are semantic and structured (for example
+  # `%Localize.InvalidLocaleError{locale_id: id}` with a lazily localized
+  # `message/1`), so an invalid locale error is returned as the exception
+  # struct itself rather than flattened into a `{module, message}` tuple.
+  # Flattening would discard the semantic fields and freeze the localized
+  # message in whatever locale was current at error time.
   defp validate_locale_option(options) do
     case Keyword.get(options, :locale) do
-      nil ->
-        {:ok, nil}
-
-      locale ->
-        case Localize.validate_locale(locale) do
-          {:ok, locale} ->
-            {:ok, locale}
-
-          {:error, exception} ->
-            {:error, {Money.InvalidLocaleError, Exception.message(exception)}}
-        end
+      nil -> {:ok, nil}
+      locale -> Localize.validate_locale(locale)
     end
-  end
-
-  # Normalizes errors from `Localize` functions — which return the exception
-  # struct itself — to the `{:error, {module, message}}` convention used
-  # throughout Money, so callers can match a single error shape. Locale and
-  # currency errors are mapped to the Money exception modules, which accept a
-  # message binary and can therefore be re-raised by the bang functions.
-  # Callers pass only `{:error, _}` tuples here (never success values) so
-  # that dialyzer keeps each caller's success typing precise.
-  defp normalize_error({:error, %Localize.InvalidLocaleError{} = exception}) do
-    {:error, {Money.InvalidLocaleError, Exception.message(exception)}}
-  end
-
-  defp normalize_error({:error, %Localize.UnknownCurrencyError{} = exception}) do
-    {:error, {Money.UnknownCurrencyError, Exception.message(exception)}}
-  end
-
-  defp normalize_error({:error, _other} = error) do
-    error
   end
 
   defp validate_not_nan_or_inf(%Decimal{} = amount) do
@@ -376,9 +354,10 @@ defmodule Money do
 
   def new!(currency_code, amount, options)
       when is_binary(currency_code) or is_atom(currency_code) do
-    case money = new(currency_code, amount, options) do
+    case new(currency_code, amount, options) do
+      {:error, %{__exception__: true} = exception} -> raise exception
       {:error, {exception, message}} -> raise exception, message
-      _ -> money
+      %Money{} = money -> money
     end
   end
 
@@ -659,22 +638,17 @@ defmodule Money do
 
   """
   @doc since: "3.2.0"
-  @spec parse(String.t(), Keyword.t()) :: Money.t() | {:error, {module(), String.t()}}
+  @spec parse(String.t(), Keyword.t()) ::
+          Money.t() | {:error, {module(), String.t()}} | {:error, Exception.t()}
 
   def parse(string, options \\ []) do
     case Money.Parser.money_parser(String.trim(string)) do
       {:ok, result, "", _, _, _} ->
-        money_or_error =
-          result
-          |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
-          |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
-          |> Map.new()
-          |> maybe_create_money(string, options)
-
-        case money_or_error do
-          {:error, _} = error -> normalize_error(error)
-          money -> money
-        end
+        result
+        |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
+        |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
+        |> Map.new()
+        |> maybe_create_money(string, options)
 
       _ ->
         {:error, {Money.ParseError, "Could not parse #{inspect(string)}."}}
@@ -875,10 +849,7 @@ defmodule Money do
         |> maybe_no_fractional_digits(money)
         |> translate_format_option()
 
-      case Localize.Number.to_string(money.amount, options) do
-        {:error, _} = error -> normalize_error(error)
-        ok -> ok
-      end
+      Localize.Number.to_string(money.amount, options)
     end
   end
 
@@ -892,10 +863,7 @@ defmodule Money do
       |> Map.put(:currency, currency_for_format(money.currency))
       |> maybe_no_fractional_digits(money)
 
-    case Localize.Number.to_string(money.amount, options) do
-      {:error, _} = error -> normalize_error(error)
-      ok -> ok
-    end
+    Localize.Number.to_string(money.amount, options)
   end
 
   # Custom and private currencies are registered at runtime in
@@ -2507,19 +2475,14 @@ defmodule Money do
   """
   @doc since: "5.12.0"
 
-  @spec localize(t(), Keyword.t()) :: {:ok, t()} | {:error, {module(), String.t()}}
+  @spec localize(t(), Keyword.t()) ::
+          {:ok, t()} | {:error, {module(), String.t()}} | {:error, Exception.t()}
   def localize(%Money{} = money, options \\ []) do
     locale = Keyword.get(options, :locale, Localize.get_locale())
 
-    result =
-      with {:ok, locale} <- Localize.validate_locale(locale),
-           {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
-        to_currency(money, currency)
-      end
-
-    case result do
-      {:error, _} = error -> normalize_error(error)
-      ok -> ok
+    with {:ok, locale} <- Localize.validate_locale(locale),
+         {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
+      to_currency(money, currency)
     end
   end
 

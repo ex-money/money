@@ -105,11 +105,14 @@ defmodule Money.RobustnessTest do
 
   describe "new/3 locale error surfacing" do
     test "an invalid :locale option is reported as the cause" do
-      assert {:error, {Money.InvalidLocaleError, message}} =
+      assert {:error, %Localize.InvalidLocaleError{locale_id: "not a locale!!"}} =
                Money.new(:USD, "1.234,56", locale: "not a locale!!")
+    end
 
-      assert message =~ "not a locale!!"
-      assert message =~ "not valid"
+    test "new!/3 raises the structured exception for an invalid :locale option" do
+      assert_raise Localize.InvalidLocaleError, fn ->
+        Money.new!(:USD, "1.234,56", locale: "not a locale!!")
+      end
     end
 
     test "a valid :locale option still parses a localized amount" do
@@ -117,37 +120,33 @@ defmodule Money.RobustnessTest do
     end
   end
 
-  describe "normalized locale error shape across public APIs" do
-    # Every public function returns errors as `{:error, {module, message}}`
-    # so callers can match a single error shape; Localize's bare exception
-    # structs are normalized at the boundary.
+  describe "structured locale errors across public APIs" do
+    # Localize exceptions are semantic and structured: the exception struct
+    # carries its fields (here `locale_id`) and its message is localized
+    # lazily by `message/1`. Money preserves the struct in error returns and
+    # bang functions raise it as-is, rather than flattening it into a
+    # `{module, message}` tuple which would discard both properties.
     @bad_locale "not a locale!!"
 
-    test "to_string/2 returns the normalized error tuple" do
-      assert {:error, {Money.InvalidLocaleError, message}} =
+    test "to_string/2 returns the structured exception" do
+      assert {:error, %Localize.InvalidLocaleError{locale_id: @bad_locale}} =
                Money.to_string(Money.new(:USD, 100), locale: @bad_locale)
-
-      assert message =~ @bad_locale
     end
 
-    test "to_string!/2 raises Money.InvalidLocaleError" do
-      assert_raise Money.InvalidLocaleError, ~r/not a locale!!/, fn ->
+    test "to_string!/2 raises the structured exception" do
+      assert_raise Localize.InvalidLocaleError, ~r/not a locale!!/, fn ->
         Money.to_string!(Money.new(:USD, 100), locale: @bad_locale)
       end
     end
 
-    test "parse/2 returns the normalized error tuple" do
-      assert {:error, {Money.InvalidLocaleError, message}} =
+    test "parse/2 returns the structured exception" do
+      assert {:error, %Localize.InvalidLocaleError{locale_id: @bad_locale}} =
                Money.parse("100", locale: @bad_locale)
-
-      assert message =~ @bad_locale
     end
 
-    test "localize/2 returns the normalized error tuple" do
-      assert {:error, {Money.InvalidLocaleError, message}} =
+    test "localize/2 returns the structured exception" do
+      assert {:error, %Localize.InvalidLocaleError{locale_id: @bad_locale}} =
                Money.localize(Money.new(:USD, 100), locale: @bad_locale)
-
-      assert message =~ @bad_locale
     end
   end
 
