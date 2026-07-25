@@ -83,7 +83,7 @@ config :ex_cldr, default_backend: MyApp.Cldr
 # Optionally configure localize locales:
 config :localize,
   default_locale: :en,
-  preload_locales: [:en, :fr, :de]
+  supported_locales: [:en, :fr, :de]
 ```
 
 ### Remove `:backend` option from function calls
