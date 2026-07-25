@@ -298,7 +298,7 @@ No backend module is required. Localize uses runtime locale resolution. Configur
 ```elixir
 config :localize,
   default_locale: :en,
-  preload_locales: [:en, :fr, :zh]
+  supported_locales: [:en, :fr, :zh]
 ```
 
 The current locale can be set at runtime:
