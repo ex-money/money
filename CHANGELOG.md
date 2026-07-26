@@ -2,6 +2,12 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Unreleased
+
+### Bug Fixes
+
+* Fix the README localize configuration examples to use `:supported_locales` in place of the deprecated and ignored `:preload_locales`, and note `mix localize.download_locales` for build-time cache pre-population. Thanks to @kayuapi for the PR. Closes #204.
+
 ## Money v6.1.1
 
 This is the changelog for Money v6.1.1 released on July 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

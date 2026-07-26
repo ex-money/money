@@ -86,6 +86,8 @@ config :localize,
   supported_locales: [:en, :fr, :de]
 ```
 
+Locale data is loaded lazily on first access. If you previously used `:preload_locales` to warm the locale data at startup, run `mix localize.download_locales` at build time to pre-populate the locale cache for the configured `:supported_locales`.
+
 ### Remove `:backend` option from function calls
 
 The `:backend` option has been removed from all Money functions. Remove it from any calls to `Money.new/3`, `Money.to_string/2`, `Money.parse/2`, `Money.localize/2`, and others:
@@ -300,6 +302,8 @@ config :localize,
   default_locale: :en,
   supported_locales: [:en, :fr, :zh]
 ```
+
+Locale data is loaded lazily on first access. To pre-populate the locale cache at build time for the configured `:supported_locales`, run `mix localize.download_locales`.
 
 The current locale can be set at runtime:
 
