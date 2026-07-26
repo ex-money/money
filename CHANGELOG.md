@@ -4,7 +4,27 @@
 
 ## Unreleased
 
+### Enhancements
+
+* Locale and currency errors originating in `localize` are returned as their structured exception structs (for example `%Localize.InvalidLocaleError{locale_id: ...}`) with semantic fields and lazily localized messages, and the bang functions re-raise them as-is. Public function specs now document this shape as `{:error, Exception.t()}` alongside the `{:error, {module, message}}` tuples used for Money's own errors.
+
+* `Money.new/3` and `Money.to_string/2` now validate a `:locale` option with `Localize.validate_locale/1`, so an invalid locale is reported as the cause rather than a generic error.
+
+* All public functions now carry typespecs, improving dialyzer results for downstream projects.
+
+* Function documentation now uses a uniform heading style with `### Returns` sections throughout the public API.
+
 ### Bug Fixes
+
+* `Money.spread/2`, `Money.to_integer_exp/1` and `Money.Subscription.change_plan/3` now return an error tuple instead of raising `FunctionClauseError` when a money's currency can no longer be resolved (for example a runtime-registered custom currency after the currency store restarts).
+
+* An exception raised by a configured exchange rates API module no longer crashes `Money.ExchangeRates.Retriever`; previously a deterministic decode failure could put the retriever into a restart-and-refetch loop that exhausts the supervisor and stops the host application. An exception raised by a callback module is logged and the successfully retrieved rates are kept.
+
+* `Money.new!/3` now raises when the underlying error is an exception struct rather than returning the error tuple.
+
+* Removed an unreachable and self-recursive `Money.new!/3` clause that failed compilation under `decimal` 3.1 with `--warnings-as-errors`.
+
+* Corrected the `change_plan requires the option` error message.
 
 * Fix the README localize configuration examples to use `:supported_locales` in place of the deprecated and ignored `:preload_locales`, and note `mix localize.download_locales` for build-time cache pre-population. Thanks to @kayuapi for the PR. Closes #204.
 
