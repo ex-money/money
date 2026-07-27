@@ -7,6 +7,38 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   doctest Retriever
 
+  # A `Money.ExchangeRates.Cache` implementation using only the deprecated,
+  # arity-0 (module-wide singleton) callbacks, to prove the retriever still
+  # works against a cache module written for the pre-named-retriever API.
+  # Static, cache-always-misses values keep this focused on dispatch, not
+  # on being a real cache.
+  defmodule LegacyCacheMock do
+    @moduledoc false
+    @behaviour Money.ExchangeRates.Cache
+
+    @impl true
+    def init, do: :ok
+
+    @impl true
+    def terminate, do: :ok
+
+    @impl true
+    def latest_rates, do: {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
+
+    @impl true
+    def historic_rates(_date),
+      do: {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
+
+    @impl true
+    def last_updated, do: {:error, {Money.ExchangeRateError, "Last updated date is not known"}}
+
+    @impl true
+    def store_latest_rates(_rates, _retrieved_at), do: :ok
+
+    @impl true
+    def store_historic_rates(_rates, _date), do: :ok
+  end
+
   setup do
     Application.put_env(:ex_money, :exchange_rates_http_client, Money.ExchangeRatesHttpMock)
     start_supervised!(Retriever)
@@ -245,6 +277,56 @@ defmodule Money.ExchangeRates.RetrieverTest do
     # Synchronise on init having fully run (including any self-sent messages).
     _ = :sys.get_state(pid)
     {name, pid}
+  end
+
+  describe "backwards compatibility with a legacy singleton cache module" do
+    test "latest_rates and historic_rates still work against an old, arity-0 cache module" do
+      config = %{Money.ExchangeRates.default_config() | cache_module: LegacyCacheMock}
+      {name, _pid} = start_named(config)
+
+      assert {:ok, %{USD: _}} = Retriever.latest_rates(name)
+      assert {:ok, _rates} = Retriever.historic_rates(name, ~D[2017-01-01])
+    end
+  end
+
+  describe "a retriever registered under a non-atom name" do
+    setup do
+      registry = :"via_registry_#{System.unique_integer([:positive])}"
+      start_supervised!({Registry, keys: :unique, name: registry})
+      {:ok, registry: registry}
+    end
+
+    test "the public lookup API accepts the {:via, ...} name", %{registry: registry} do
+      name = {:via, Registry, {registry, :rates}}
+      pid = start_supervised!({Retriever, name: name}, id: :retriever_rates)
+
+      assert GenServer.whereis(name) == pid
+
+      refute Retriever.latest_rates_available?(name)
+
+      assert {:ok, %{USD: _}} = Retriever.latest_rates(name)
+      assert Retriever.latest_rates_available?(name)
+      assert {:ok, %DateTime{}} = Retriever.last_updated(name)
+
+      assert Retriever.historic_rates(name, ~D[2017-01-01]) ==
+               {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}}
+
+      assert [{:ok, _}, {:ok, _}] =
+               Retriever.historic_rates(name, ~D[2017-01-01], ~D[2017-01-02])
+    end
+
+    test "keeps its cache isolated from another named retriever", %{registry: registry} do
+      foo = {:via, Registry, {registry, :foo}}
+      bar = {:via, Registry, {registry, :bar}}
+      start_supervised!({Retriever, name: foo}, id: :retriever_foo)
+      start_supervised!({Retriever, name: bar}, id: :retriever_bar)
+
+      # Populate only the foo retriever's cache; the bar retriever must not see it.
+      assert {:ok, _rates} = Retriever.latest_rates(foo)
+
+      assert Retriever.latest_rates_available?(foo)
+      refute Retriever.latest_rates_available?(bar)
+    end
   end
 
   describe "startup scheduling and preload" do

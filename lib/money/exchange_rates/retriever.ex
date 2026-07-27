@@ -28,15 +28,19 @@ defmodule Money.ExchangeRates.Retriever do
       Money.ExchangeRates.Retriever.latest_rates(:open_exchange_rates)
       Money.ExchangeRates.Retriever.historic_rates(:fixer, ~D[2024-01-01])
 
-  > #### Each named retriever needs its own cache module {: .warning}
+  > #### Named retrievers each get their own cache {: .info}
   >
   > The bundled cache implementations (`Money.ExchangeRates.Cache.Ets` and
-  > `Money.ExchangeRates.Cache.Dets`) use a fixed, module-wide storage location
-  > (the `:exchange_rates` ETS table / a single DETS file). Two retrievers
-  > configured with the same `cache_module` therefore share one cache and will
-  > overwrite each other's rates. When running multiple named retrievers, give
-  > each its own `cache_module` (a distinct module backed by a distinct ETS
-  > table name or DETS path) in its configuration.
+  > `Money.ExchangeRates.Cache.Dets`) key their storage (the ETS table name /
+  > DETS file path) by the retriever's `:name`, so multiple named retrievers
+  > can safely share the same `cache_module` - each gets its own separated
+  > cache.
+  >
+  > A custom cache module that implements only the deprecated,
+  > lower-arity `Money.ExchangeRates.Cache` callbacks behaves as a single,
+  > module-wide cache instead. Named retrievers sharing such a module will
+  > overwrite each other's rates; give each its own `cache_module` in that
+  > case.
 
   By default exchange rates are retrieved from
   [Open Exchange Rates](http://openexchangerates.org). The retrieval interval
@@ -50,10 +54,16 @@ defmodule Money.ExchangeRates.Retriever do
   use GenServer
   require Logger
 
+  alias Money.ExchangeRates
+
+  # A `GenServer.server/0`: a pid, a locally registered atom, or a
+  # `{:global, _}` / `{:via, _, _}` / `{atom, node}` tuple.
+  defguardp is_retriever(name) when is_atom(name) or is_pid(name) or is_tuple(name)
+
   @doc deprecated: "Use `Supervisor.start_child/2` on your application's supervisor instead"
-  @spec start(GenServer.name(), Money.ExchangeRates.Config.t()) :: GenServer.on_start()
-  def start(name \\ __MODULE__, config \\ Money.ExchangeRates.config()) do
-    GenServer.start_link(__MODULE__, config, name: name)
+  @spec start(GenServer.name(), ExchangeRates.Config.t()) :: GenServer.on_start()
+  def start(name \\ __MODULE__, config \\ ExchangeRates.config()) do
+    GenServer.start_link(__MODULE__, %{config: config, name: name}, name: name)
   end
 
   @doc deprecated: "Use `Supervisor.terminate_child/2` on your application's supervisor instead"
@@ -78,9 +88,9 @@ defmodule Money.ExchangeRates.Retriever do
   @doc false
   @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(opts \\ []) do
-    config = Keyword.get(opts, :config, Money.ExchangeRates.config())
+    config = Keyword.get(opts, :config, ExchangeRates.config())
     name = Keyword.get(opts, :name, __MODULE__)
-    GenServer.start_link(__MODULE__, config, name: name)
+    GenServer.start_link(__MODULE__, %{config: config, name: name}, name: name)
   end
 
   @doc """
@@ -100,9 +110,10 @@ defmodule Money.ExchangeRates.Retriever do
   `Money.ExchangeRates.historic_rates/1`.
 
   """
-  @spec latest_rates(GenServer.server()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec latest_rates(GenServer.server()) ::
+          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def latest_rates(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :latest_rates)
     end
@@ -132,25 +143,27 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
 
-  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Calendar.date()) ::
+          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   @spec historic_rates(Date.Range.t()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
+          | {:error, {Exception.t(), binary}}
   def historic_rates(date_or_range) when is_map(date_or_range) do
     historic_rates(__MODULE__, date_or_range)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date()) ::
-          {:ok, map()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date)
-      when is_atom(retriever) or is_pid(retriever) do
-    case Process.whereis(retriever) do
+      when is_retriever(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, {:historic_rates, date})
     end
   end
 
   def historic_rates(retriever, %{year: year, month: month, day: day})
-      when is_atom(retriever) or is_pid(retriever) do
+      when is_retriever(retriever) do
     case Date.new(year, month, day) do
       {:ok, date} -> historic_rates(retriever, date)
       error -> error
@@ -158,9 +171,10 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @spec historic_rates(GenServer.server(), Date.Range.t()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
+          | {:error, {Exception.t(), binary}}
   def historic_rates(retriever, %Date.Range{} = range) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       _pid -> for date <- range, do: historic_rates(retriever, date)
     end
@@ -185,13 +199,15 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   @spec historic_rates(Calendar.date(), Calendar.date()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
+          | {:error, {Exception.t(), binary}}
   def historic_rates(from, to) when is_map(from) and is_map(to) do
     historic_rates(__MODULE__, from, to)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date(), Calendar.date()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
+          | {:error, {Exception.t(), binary}}
   def historic_rates(
         retriever,
         %Date{calendar: Calendar.ISO} = from,
@@ -217,7 +233,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec latest_rates_available?(GenServer.server()) :: boolean
   def latest_rates_available?(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> false
       pid -> GenServer.call(pid, :latest_rates_available?)
     end
@@ -236,7 +252,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :last_updated)
     end
@@ -247,10 +263,10 @@ defmodule Money.ExchangeRates.Retriever do
   Service
 
   """
-  @spec reconfigure(GenServer.name(), Money.ExchangeRates.Config.t()) ::
-          Money.ExchangeRates.Config.t() | {:error, {module(), String.t()}}
-  def reconfigure(retriever \\ __MODULE__, %Money.ExchangeRates.Config{} = config) do
-    case Process.whereis(retriever) do
+  @spec reconfigure(GenServer.name(), ExchangeRates.Config.t()) ::
+          ExchangeRates.Config.t() | {:error, {module(), String.t()}}
+  def reconfigure(retriever \\ __MODULE__, %ExchangeRates.Config{} = config) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, {:reconfigure, config})
     end
@@ -262,9 +278,9 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   @spec config(GenServer.name()) ::
-          Money.ExchangeRates.Config.t() | {:error, {module(), String.t()}}
+          ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def config(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :config)
     end
@@ -272,7 +288,7 @@ defmodule Money.ExchangeRates.Retriever do
 
   @doc deprecated:
          "Use `Money.ExchangeRates.HTTP` or the HTTP client of your preference directly instead"
-  @spec retrieve_rates(charlist() | String.t(), Money.ExchangeRates.Config.t()) ::
+  @spec retrieve_rates(charlist() | String.t(), ExchangeRates.Config.t()) ::
           {:ok, map() | :not_modified} | {:error, term()}
   def retrieve_rates(url, config) when is_list(url) do
     url
@@ -282,7 +298,7 @@ defmodule Money.ExchangeRates.Retriever do
 
   def retrieve_rates(url, config) when is_binary(url) do
     url
-    |> Money.ExchangeRates.HTTP.get(verify_peer: Map.get(config, :verify_peer, true))
+    |> ExchangeRates.HTTP.get(verify_peer: Map.get(config, :verify_peer, true))
     |> process_response(config)
   end
 
@@ -303,9 +319,10 @@ defmodule Money.ExchangeRates.Retriever do
   #
 
   @impl true
-  def init(config) do
+  def init(%{config: config, name: name} = state) do
     :erlang.process_flag(:trap_exit, true)
-    config.cache_module.init()
+    cache = call_cache_module(config, :init, [name])
+    state = Map.put(state, :cache, cache)
 
     if is_integer(config.retrieve_every) do
       log(config, :info, log_init_message(config.retrieve_every))
@@ -314,112 +331,113 @@ defmodule Money.ExchangeRates.Retriever do
 
     if config.preload_historic_rates do
       log(config, :info, "Preloading historic rates for #{inspect(config.preload_historic_rates)}")
-      schedule_historic_rates_preload(config.preload_historic_rates, config.cache_module)
+      schedule_historic_rates_preload(config.preload_historic_rates, state)
     end
 
-    {:ok, config}
+    {:ok, state}
   end
 
   @impl true
-  def terminate(:normal, config) do
-    config.cache_module.terminate()
+  def terminate(:normal, state) do
+    call_cache_module(state.config, :terminate, [state.cache])
   end
 
   @impl true
-  def terminate(:shutdown, config) do
-    config.cache_module.terminate()
+  def terminate(:shutdown, state) do
+    call_cache_module(state.config, :terminate, [state.cache])
   end
 
   @impl true
-  def terminate(other, _config) do
+  def terminate(other, _state) do
     Logger.error("[ExchangeRates.Retriever] Terminate called with unhandled #{inspect(other)}")
   end
 
   @impl true
-  def handle_call(:latest_rates, _from, config) do
-    {:reply, retrieve_latest_rates(config), config}
+  def handle_call(:latest_rates, _from, state) do
+    {:reply, retrieve_latest_rates(state), state}
   end
 
   @impl true
-  def handle_call({:historic_rates, date}, _from, config) do
-    {:reply, retrieve_historic_rates(date, config), config}
+  def handle_call({:historic_rates, date}, _from, state) do
+    {:reply, retrieve_historic_rates(date, state), state}
   end
 
-  def handle_call(:latest_rates_available?, _from, config) do
-    {:reply, match?({:ok, _rates}, config.cache_module.latest_rates()), config}
+  def handle_call(:latest_rates_available?, _from, state) do
+    {:reply, match?({:ok, _rates}, call_cache_module(state.config, :latest_rates, [state.cache])),
+     state}
   end
 
-  def handle_call(:last_updated, _from, config) do
-    {:reply, config.cache_module.last_updated(), config}
-  end
-
-  @impl true
-  def handle_call({:reconfigure, new_configuration}, _from, config) do
-    config.cache_module.terminate()
-    {:ok, new_config} = init(new_configuration)
-    {:reply, new_config, new_config}
+  def handle_call(:last_updated, _from, state) do
+    {:reply, call_cache_module(state.config, :last_updated, [state.cache]), state}
   end
 
   @impl true
-  def handle_call(:config, _from, config) do
-    {:reply, config, config}
+  def handle_call({:reconfigure, new_configuration}, _from, state) do
+    call_cache_module(state.config, :terminate, [state.cache])
+    {:ok, new_state} = init(%{config: new_configuration, name: state.name})
+    {:reply, new_state.config, new_state}
   end
 
   @impl true
-  def handle_call(:stop, _from, config) do
-    {:stop, :normal, :ok, config}
+  def handle_call(:config, _from, state) do
+    {:reply, state.config, state}
   end
 
   @impl true
-  def handle_call({:stop, reason}, _from, config) do
-    {:stop, reason, :ok, config}
+  def handle_call(:stop, _from, state) do
+    {:stop, :normal, :ok, state}
   end
 
   @impl true
-  def handle_info(:scheduled_latest_rates_fetch, config) do
-    fetch_latest_rates(config)
-    schedule_latest_rates_fetch(config.retrieve_every)
-    {:noreply, config}
+  def handle_call({:stop, reason}, _from, state) do
+    {:stop, reason, :ok, state}
   end
 
   @impl true
-  def handle_info({:historic_rates, %Date{calendar: Calendar.ISO} = date}, config) do
-    retrieve_historic_rates(date, config)
-    {:noreply, config}
+  def handle_info(:scheduled_latest_rates_fetch, state) do
+    fetch_latest_rates(state)
+    schedule_latest_rates_fetch(state.config.retrieve_every)
+    {:noreply, state}
   end
 
   @impl true
-  def handle_info(:stop, config) do
-    {:stop, :normal, config}
+  def handle_info({:historic_rates, %Date{calendar: Calendar.ISO} = date}, state) do
+    retrieve_historic_rates(date, state)
+    {:noreply, state}
   end
 
   @impl true
-  def handle_info({:stop, reason}, config) do
-    {:stop, reason, config}
+  def handle_info(:stop, state) do
+    {:stop, :normal, state}
   end
 
   @impl true
-  def handle_info(message, config) do
+  def handle_info({:stop, reason}, state) do
+    {:stop, reason, state}
+  end
+
+  @impl true
+  def handle_info(message, state) do
     Logger.error("Invalid message for ExchangeRates.Retriever: #{inspect(message)}")
-    {:noreply, config}
+    {:noreply, state}
   end
 
-  defp retrieve_latest_rates(config) do
-    case config.cache_module.latest_rates() do
+  defp retrieve_latest_rates(state) do
+    case call_cache_module(state.config, :latest_rates, [state.cache]) do
       {:ok, rates} -> {:ok, rates}
-      {:error, _reason} -> fetch_latest_rates(config)
+      {:error, _reason} -> fetch_latest_rates(state)
     end
   end
 
-  defp fetch_latest_rates(config) do
+  defp fetch_latest_rates(%{config: config} = state) do
     case call_api_module(config, :get_latest_rates, [config]) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
-        config.cache_module.latest_rates()
+        call_cache_module(config, :latest_rates, [state.cache])
 
       {:ok, rates} ->
         retrieved_at = DateTime.utc_now()
-        config.cache_module.store_latest_rates(rates, retrieved_at)
+        call_cache_module(config, :store_latest_rates, [state.cache, rates, retrieved_at])
         run_callback(config, :latest_rates_retrieved, [rates, retrieved_at])
         log(config, :success, "Retrieved latest exchange rates successfully")
         {:ok, rates}
@@ -430,21 +448,21 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp retrieve_historic_rates(date, config) do
-    case config.cache_module.historic_rates(date) do
+  defp retrieve_historic_rates(date, state) do
+    case call_cache_module(state.config, :historic_rates, [state.cache, date]) do
       {:ok, rates} -> {:ok, rates}
-      {:error, _reason} -> fetch_historic_rates(date, config)
+      {:error, _reason} -> fetch_historic_rates(date, state)
     end
   end
 
-  defp fetch_historic_rates(date, config) do
+  defp fetch_historic_rates(date, %{config: config} = state) do
     case call_api_module(config, :get_historic_rates, [date, config]) do
       {:ok, :not_modified} ->
         log(config, :success, "Historic exchange rates for #{Date.to_string(date)} unchanged")
-        config.cache_module.historic_rates(date)
+        call_cache_module(config, :historic_rates, [state.cache, date])
 
       {:ok, rates} ->
-        config.cache_module.store_historic_rates(rates, date)
+        call_cache_module(config, :store_historic_rates, [state.cache, rates, date])
         run_callback(config, :historic_rates_retrieved, [rates, date])
 
         log(
@@ -464,6 +482,21 @@ defmodule Money.ExchangeRates.Retriever do
         )
 
         {:error, reason}
+    end
+  end
+
+  # Calls a `Money.ExchangeRates.Cache` operation on `cache_module`. `args` is
+  # the argument list for the current, cache-taking arity (cache reference or
+  # retriever name first); if `cache_module` doesn't export that arity it
+  # falls back to the deprecated, module-wide singleton arity by dropping
+  # that leading argument.
+  defp call_cache_module(%{cache_module: cache_module}, fun, args) do
+    Code.ensure_loaded!(cache_module)
+
+    if function_exported?(cache_module, fun, length(args)) do
+      apply(cache_module, fun, args)
+    else
+      apply(cache_module, fun, tl(args))
     end
   end
 
@@ -506,9 +539,9 @@ defmodule Money.ExchangeRates.Retriever do
     Process.send_after(self(), :scheduled_latest_rates_fetch, delay_ms)
   end
 
-  defp schedule_historic_rates_preload(%Date.Range{} = date_range, cache_module) do
+  defp schedule_historic_rates_preload(%Date.Range{} = date_range, state) do
     for date <- date_range do
-      schedule_historic_rates_preload(date, cache_module)
+      schedule_historic_rates_preload(date, state)
     end
   end
 
@@ -524,8 +557,8 @@ defmodule Money.ExchangeRates.Retriever do
   # external API calls and it means the cache
   # will survive restarts both intentional and
   # unintentional
-  defp schedule_historic_rates_preload(%Date{calendar: Calendar.ISO} = date, cache_module) do
-    case cache_module.historic_rates(date) do
+  defp schedule_historic_rates_preload(%Date{calendar: Calendar.ISO} = date, state) do
+    case call_cache_module(state.config, :historic_rates, [state.cache, date]) do
       {:ok, _rates} ->
         :ok
 
@@ -534,21 +567,21 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp schedule_historic_rates_preload({%Date{} = from, %Date{} = to}, cache_module) do
-    schedule_historic_rates_preload(Date.range(from, to), cache_module)
+  defp schedule_historic_rates_preload({%Date{} = from, %Date{} = to}, state) do
+    schedule_historic_rates_preload(Date.range(from, to), state)
   end
 
-  defp schedule_historic_rates_preload(date_string, cache_module) when is_binary(date_string) do
+  defp schedule_historic_rates_preload(date_string, state) when is_binary(date_string) do
     parts = String.split(date_string, "..")
 
     case parts do
       [date] ->
-        schedule_historic_rates_preload(Date.from_iso8601(date), cache_module)
+        schedule_historic_rates_preload(Date.from_iso8601(date), state)
 
       [from, to] ->
         schedule_historic_rates_preload(
           {Date.from_iso8601(from), Date.from_iso8601(to)},
-          cache_module
+          state
         )
     end
   end
@@ -556,7 +589,7 @@ defmodule Money.ExchangeRates.Retriever do
   # Any non-numeric value, or non-date value means
   # we don't schedule work - ie there is no periodic
   # retrieval
-  defp schedule_historic_rates_preload(_, _cache_module) do
+  defp schedule_historic_rates_preload(_, _state) do
     :ok
   end
 

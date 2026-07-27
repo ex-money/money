@@ -2,7 +2,6 @@ defmodule Money.ExchangeRatesTest do
   use ExUnit.Case, async: false
 
   alias Money.ExchangeRates
-  alias Money.ExchangeRates.Cache.Ets
 
   doctest ExchangeRates
 
@@ -26,9 +25,15 @@ defmodule Money.ExchangeRatesTest do
 
   describe "latest_rates/0" do
     test "fetches from the cache when rates are cached" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      pid = Process.whereis(Money.ExchangeRates.Retriever)
+      assert {:ok, rates} = ExchangeRates.latest_rates()
 
-      assert ExchangeRates.latest_rates() == {:ok, @rates}
+      trace_module(pid, Money.ExchangeRatesCallbackMock)
+
+      assert ExchangeRates.latest_rates() == {:ok, rates}
+
+      refute_received {:trace, ^pid, :call,
+                       {Money.ExchangeRatesCallbackMock, :latest_rates_retrieved, _}}
     end
 
     test "fetches from the retriever when the cache is empty" do
@@ -45,7 +50,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns error when retriever stops even if cache has rates" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      assert {:ok, _rates} = ExchangeRates.latest_rates()
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.latest_rates() ==
@@ -67,9 +72,15 @@ defmodule Money.ExchangeRatesTest do
 
   describe "historic_rates/1" do
     test "fetches from the cache when rates are cached" do
-      Ets.store_historic_rates(@rates, ~D[2017-01-01])
+      pid = Process.whereis(Money.ExchangeRates.Retriever)
+      assert {:ok, rates} = ExchangeRates.historic_rates(~D[2017-01-01])
 
-      assert ExchangeRates.historic_rates(~D[2017-01-01]) == {:ok, @rates}
+      trace_module(pid, Money.ExchangeRatesCallbackMock)
+
+      assert ExchangeRates.historic_rates(~D[2017-01-01]) == {:ok, rates}
+
+      refute_received {:trace, ^pid, :call,
+                       {Money.ExchangeRatesCallbackMock, :historic_rates_retrieved, _}}
     end
 
     test "fetches from the retriever when the cache is empty" do
@@ -85,7 +96,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns error when retriever stops even if cache has rates" do
-      Ets.store_historic_rates(@rates, ~D[2017-01-01])
+      assert {:ok, _rates} = ExchangeRates.historic_rates(~D[2017-01-01])
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
@@ -106,7 +117,7 @@ defmodule Money.ExchangeRatesTest do
 
   describe "latest_rates_available?/0" do
     test "returns true when rates are in the cache" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      assert {:ok, _rates} = ExchangeRates.latest_rates()
 
       assert ExchangeRates.latest_rates_available?()
     end
@@ -122,7 +133,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns false when retriever stops even if cache has rates" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      assert {:ok, _rates} = ExchangeRates.latest_rates()
       stop_supervised(Money.ExchangeRates.Retriever)
 
       refute ExchangeRates.latest_rates_available?()
@@ -131,10 +142,11 @@ defmodule Money.ExchangeRatesTest do
 
   describe "last_updated/0" do
     test "returns the time when rates have been stored" do
-      retrieved_at = DateTime.utc_now(:second)
-      Ets.store_latest_rates(@rates, retrieved_at)
+      before_fetch = DateTime.utc_now()
+      assert {:ok, _rates} = ExchangeRates.latest_rates()
 
-      assert ExchangeRates.last_updated() == {:ok, retrieved_at}
+      assert {:ok, retrieved_at} = ExchangeRates.last_updated()
+      assert DateTime.compare(retrieved_at, before_fetch) != :lt
     end
 
     test "returns an error when the retriever is not running" do
@@ -146,8 +158,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns error when retriever stops even if timestamp is cached" do
-      retrieved_at = DateTime.utc_now(:second)
-      Ets.store_latest_rates(@rates, retrieved_at)
+      assert {:ok, _rates} = ExchangeRates.latest_rates()
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.last_updated() ==

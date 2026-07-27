@@ -254,6 +254,8 @@ An optional callback module can also be defined.  This module defines a `rates_r
   * `Money.ExchangeRates.Cache.Ets` which is also the default.
   * `Money.ExchangeRates.Cache.Dets`
 
+  A custom `Money.ExchangeRates.Cache` implementation written against an older version of `ex_money` still works, but raises a compiler warning - see the "Migrating from the deprecated singleton callbacks" section in the `Money.ExchangeRates.Cache` docs for how to update it.
+
 * `:retriever_options` is available for exchange rate retriever module developers as a place to add retriever-specific configuration information.  This information should be added in the `init/1` callback in the retriever module.  See `Money.ExchangeRates.OpenExchangeRates.init/1` for an example.
 
 * `:preload_historic_rates` defines a date or a date range that will be requested when the exchange rate service starts up. The date or date range should be specified as either a `Date.t` or a `Date.Range.t` or a tuple of `{Date.t, Date.t}` representing the `from` and `to` dates for the rates to be retrieved. The default is `nil` meaning no historic rates are preloaded. See [Preloading historic rates](#preloading-historic-rates) for more information.
