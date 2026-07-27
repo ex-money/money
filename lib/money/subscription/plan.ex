@@ -150,15 +150,15 @@ defmodule Money.Subscription.Plan do
         {:ok, "$10.00 per year"}
         iex> Money.Subscription.Plan.to_string(plan, locale: :ja)
         {:ok, "$10.00/年"}
-        iex> Money.Subscription.Plan.to_string(plan, locale: :de, style: :narrow)
+        iex> Money.Subscription.Plan.to_string(plan, locale: :de, format: :narrow)
         {:ok, "10,00\u00A0$/J"}
 
         iex> {:ok, plan} = Money.Subscription.Plan.new(Money.new(:USD, 10), :day, 30)
         iex> Money.Subscription.Plan.to_string(plan)
-        {:ok, "$10.00 per 30 day"}
+        {:ok, "$10.00 per 30 days"}
         iex> Money.Subscription.Plan.to_string(plan, locale: :de)
-        {:ok, "10,00\u00A0$ pro Tag"}
-        iex> Money.Subscription.Plan.to_string(plan, locale: :de, style: :short)
+        {:ok, "10,00\u00A0$ pro 30 Tage"}
+        iex> Money.Subscription.Plan.to_string(plan, locale: :de, format: :short)
         {:ok, "10,00\u00A0$/T"}
 
     """
@@ -169,7 +169,17 @@ defmodule Money.Subscription.Plan do
       unit_name = unit_from_plan(plan)
 
       Localize.Unit.new!(plan.price.amount, unit_name)
-      |> Localize.Unit.to_string(options)
+      |> Localize.Unit.to_string(translate_style_option(options))
+    end
+
+    # `:style` was renamed to `:format` in Localize and has since been removed as
+    # an option there. It is retained here as an undocumented, deprecated alias so
+    # existing callers keep working; `:format` takes precedence when both are given.
+    defp translate_style_option(options) do
+      case Keyword.pop(options, :style) do
+        {nil, options} -> options
+        {style, options} -> Keyword.put_new(options, :format, style)
+      end
     end
 
     @spec to_string!(t(), Keyword.t()) :: String.t() | no_return()
