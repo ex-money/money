@@ -331,10 +331,14 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   describe "startup scheduling and preload" do
     test "a retrieval interval logs the init message and fetches on demand" do
+      # `success: nil` keeps the asynchronous first-retrieval success message
+      # (logged from the retriever process, which can complete after this
+      # `capture_log/1` block returns) out of the test output. The init message
+      # below still exercises `log/3` with a configured (`:info`) level.
       config = %{
         Money.ExchangeRates.default_config()
         | retrieve_every: 60_000,
-          log_levels: %{success: :info, failure: :warning, info: :info}
+          log_levels: %{success: nil, failure: :warning, info: :info}
       }
 
       log =
