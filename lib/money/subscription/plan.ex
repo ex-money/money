@@ -159,7 +159,7 @@ defmodule Money.Subscription.Plan do
         iex> Money.Subscription.Plan.to_string(plan, locale: :de)
         {:ok, "10,00\u00A0$ pro 30 Tage"}
         iex> Money.Subscription.Plan.to_string(plan, locale: :de, format: :short)
-        {:ok, "10,00\u00A0$/T"}
+        {:ok, "10,00\u00A0$/30 Tg."}
 
     """
     @doc since: "5.22.0"
