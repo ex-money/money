@@ -12,7 +12,10 @@ defmodule Money.ExchangeRates.Cache.Ets do
   end
 
   @impl true
-  def terminate(_tid) do
+  def terminate(tid) do
+    # Delete the table so a `reconfigure` (terminate + re-init on the still-alive
+    # retriever) does not orphan it. On process death the VM reclaims it anyway.
+    :ets.delete(tid)
     :ok
   end
 

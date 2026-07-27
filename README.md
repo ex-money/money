@@ -254,7 +254,7 @@ An optional callback module can also be defined.  This module defines a `rates_r
   * `Money.ExchangeRates.Cache.Ets` which is also the default.
   * `Money.ExchangeRates.Cache.Dets`
 
-  A custom `Money.ExchangeRates.Cache` implementation written against an older version of `ex_money` still works, but raises a compiler warning - see the "Migrating from the deprecated singleton callbacks" section in the `Money.ExchangeRates.Cache` docs for how to update it.
+  A custom `Money.ExchangeRates.Cache` implementation written against an older version of `ex_money` still works - see the "Migrating from the deprecated singleton callbacks" section in the `Money.ExchangeRates.Cache` docs for how to update it so that named retrievers each get isolated storage.
 
 * `:retriever_options` is available for exchange rate retriever module developers as a place to add retriever-specific configuration information.  This information should be added in the `init/1` callback in the retriever module.  See `Money.ExchangeRates.OpenExchangeRates.init/1` for an example.
 

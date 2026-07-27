@@ -13,8 +13,8 @@ defmodule Money.ExchangeRates.Cache do
   Older cache modules implemented `init/0`, `terminate/0`, `latest_rates/0`,
   `historic_rates/1`, `last_updated/0`, `store_latest_rates/2` and
   `store_historic_rates/2`, storing rates as fixed, module-wide state. These
-  still work (with a compiler warning), but named retrievers sharing such a
-  module overwrite each other's rates.
+  still work, but named retrievers sharing such a module overwrite each other's
+  rates.
 
   To migrate, add the `t:cache/0` value returned by `init/1` as the leading
   argument to every other callback, and key storage off the `name` given to
@@ -104,11 +104,24 @@ defmodule Money.ExchangeRates.Cache do
   @doc deprecated: "Use store_historic_rates/3 instead"
   @callback store_historic_rates(ExchangeRates.t(), Date.t()) :: :ok
 
+  # Every callback is optional: an implementation provides *either* the current
+  # cache-aware arities *or* the deprecated module-wide arities, and the
+  # retriever dispatches to whichever is exported. A behaviour cannot express
+  # "one of these two arities is required", so neither is marked required; this
+  # is what lets a cache module written for the older API compile without
+  # "required callback not implemented" warnings.
   @optional_callbacks init: 0,
+                      init: 1,
                       terminate: 0,
+                      terminate: 1,
                       latest_rates: 0,
+                      latest_rates: 1,
                       historic_rates: 1,
+                      historic_rates: 2,
                       last_updated: 0,
+                      last_updated: 1,
                       store_latest_rates: 2,
-                      store_historic_rates: 2
+                      store_latest_rates: 3,
+                      store_historic_rates: 2,
+                      store_historic_rates: 3
 end
