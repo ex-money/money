@@ -421,4 +421,24 @@ defmodule MoneySubscriptionTest do
       end
     end
   end
+
+  describe "Plan.to_string/2 format option" do
+    setup do
+      {:ok, plan: Plan.new!(Money.new(:USD, 10), :year)}
+    end
+
+    test ":format selects the unit width", %{plan: plan} do
+      assert Plan.to_string(plan, locale: :de, format: :narrow) == {:ok, "10,00 $/J"}
+    end
+
+    test ":style is accepted as a deprecated alias for :format", %{plan: plan} do
+      assert Plan.to_string(plan, locale: :de, style: :narrow) ==
+               Plan.to_string(plan, locale: :de, format: :narrow)
+    end
+
+    test ":format takes precedence over the deprecated :style", %{plan: plan} do
+      assert Plan.to_string(plan, locale: :de, style: :long, format: :narrow) ==
+               Plan.to_string(plan, locale: :de, format: :narrow)
+    end
+  end
 end

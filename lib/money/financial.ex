@@ -343,7 +343,7 @@ defmodule Money.Financial do
   ### Examples
 
       iex> Money.Financial.periods Money.new(:USD, 1500), Money.new(:USD, 2000), 0.005
-      Decimal.new("57.68013595323872502502238366922639")
+      Decimal.new("57.68013595323872502502238366926834")
 
   """
   @spec periods(Money.t(), Money.t(), float) :: Decimal.t()

@@ -9,47 +9,63 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   @date ~D[2099-01-01]
 
   setup do
-    Ets.init()
-    :ok
+    cache = Ets.init(:"ets_test_#{System.unique_integer([:positive])}")
+
+    {:ok, cache: cache}
   end
 
-  describe "init/0" do
-    test "returns the table name when the table already exists" do
-      assert Ets.init() == :exchange_rates
-    end
-  end
+  describe "init/1" do
+    test "accepts a non-atom name and returns a usable handle" do
+      cache = Ets.init({:via, Registry, {SomeRegistry, :bid}})
 
-  describe "terminate/0" do
-    test "returns :ok" do
-      assert Ets.terminate() == :ok
-    end
-  end
-
-  describe "store_latest_rates/2 and latest_rates/0" do
-    test "returns stored rates" do
       retrieved_at = DateTime.utc_now()
-      Ets.store_latest_rates(@rates, retrieved_at)
-      assert Ets.latest_rates() == {:ok, @rates}
+      Ets.store_latest_rates(cache, @rates, retrieved_at)
+      assert Ets.latest_rates(cache) == {:ok, @rates}
+    end
+
+    test "returns an isolated cache on each call" do
+      other = Ets.init(:"ets_test_#{System.unique_integer([:positive])}")
+
+      Ets.store_latest_rates(other, @rates, DateTime.utc_now())
+
+      assert Ets.latest_rates(other) == {:ok, @rates}
+
+      assert Ets.latest_rates(Ets.init(:another)) ==
+               {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
     end
   end
 
-  describe "store_historic_rates/2 and historic_rates/1" do
-    test "returns stored rates for a Date" do
-      Ets.store_historic_rates(@rates, @date)
-      assert Ets.historic_rates(@date) == {:ok, @rates}
+  describe "terminate/1" do
+    test "returns :ok", %{cache: cache} do
+      assert Ets.terminate(cache) == :ok
+    end
+  end
+
+  describe "store_latest_rates/3 and latest_rates/1" do
+    test "returns stored rates", %{cache: cache} do
+      retrieved_at = DateTime.utc_now()
+      Ets.store_latest_rates(cache, @rates, retrieved_at)
+      assert Ets.latest_rates(cache) == {:ok, @rates}
+    end
+  end
+
+  describe "store_historic_rates/3 and historic_rates/2" do
+    test "returns stored rates for a Date", %{cache: cache} do
+      Ets.store_historic_rates(cache, @rates, @date)
+      assert Ets.historic_rates(cache, @date) == {:ok, @rates}
     end
 
-    test "returns an error for an unstored date" do
-      assert Ets.historic_rates(~D[2099-12-31]) ==
+    test "returns an error for an unstored date", %{cache: cache} do
+      assert Ets.historic_rates(cache, ~D[2099-12-31]) ==
                {:error, {Money.ExchangeRateError, "No exchange rates for 2099-12-31 were found"}}
     end
   end
 
-  describe "last_updated/0" do
-    test "returns the timestamp stored alongside the latest rates" do
+  describe "last_updated/1" do
+    test "returns the timestamp stored alongside the latest rates", %{cache: cache} do
       retrieved_at = DateTime.utc_now()
-      Ets.store_latest_rates(@rates, retrieved_at)
-      assert Ets.last_updated() == {:ok, retrieved_at}
+      Ets.store_latest_rates(cache, @rates, retrieved_at)
+      assert Ets.last_updated(cache) == {:ok, retrieved_at}
     end
   end
 end

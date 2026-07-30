@@ -4,37 +4,31 @@ defmodule Money.ExchangeRates.Cache.Dets do
   :dets
   """
 
-  @behaviour Money.ExchangeRates.Cache
-
-  @ets_table :exchange_rates
-
-  require Logger
-  require Money.ExchangeRates.Cache.EtsDets
-  Money.ExchangeRates.Cache.EtsDets.define_common_functions()
+  use Money.ExchangeRates.Cache.EtsDets
 
   @impl true
-  def init do
-    path = System.tmp_dir!() |> Path.join(".exchange_rates") |> String.to_charlist()
-    {:ok, name} = :dets.open_file(@ets_table, file: path)
-    name
+  def init(name) do
+    path = Path.join(System.tmp_dir!(), ".exchange_rates_#{:erlang.phash2(name)}")
+    {:ok, table} = :dets.open_file(name, file: String.to_charlist(path))
+    table
   end
 
   @impl true
-  def terminate do
-    :dets.close(@ets_table)
+  def terminate(table) do
+    :dets.close(table)
   end
 
-  @spec get(any()) :: any()
-  def get(key) do
-    case :dets.lookup(@ets_table, key) do
-      [{^key, value}] -> value
-      [] -> nil
+  defp get(table, key) do
+    with info when is_list(info) <- :dets.info(table),
+         [{^key, value}] <- :dets.lookup(table, key) do
+      value
+    else
+      _ -> nil
     end
   end
 
-  @spec put(any(), any()) :: any()
-  def put(key, value) do
-    :dets.insert(@ets_table, {key, value})
+  defp put(table, key, value) do
+    :dets.insert(table, {key, value})
     value
   end
 end

@@ -692,7 +692,7 @@ defmodule Money do
 
     with {:ok, locale} <- Localize.validate_locale(locale),
          {:ok, currency_strings} <-
-           Localize.Currency.currency_strings(locale, only_filter, except_filter),
+           Localize.Currency.currency_strings(locale, only: only_filter, except: except_filter),
          {:ok, currency} <-
            find_currency(currency_strings, currency, fuzzy) do
       Money.new(currency, amount, options)
@@ -815,7 +815,7 @@ defmodule Money do
       {:ok, "THB 1,234.0000"}
 
       iex> Money.to_string Money.new(:USD, 1234), format: :long
-      {:ok, "1,234 US dollars"}
+      {:ok, "1,234.00 US dollars"}
 
       iex> Money.to_string(Money.new(:EUR, "100"), locale: "bn")
       {:ok, "১০০.০০€"}
@@ -962,7 +962,7 @@ defmodule Money do
       "THB 1,234.00"
 
       iex> Money.to_string! Money.new(:USD, 1234), format: :long
-      "1,234 US dollars"
+      "1,234.00 US dollars"
 
   """
   @spec to_string!(Money.t(), Keyword.t() | map()) ::
