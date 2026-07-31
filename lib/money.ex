@@ -71,6 +71,13 @@ defmodule Money do
   """
   @type amount :: float() | integer() | Decimal.t() | String.t()
 
+  @typedoc """
+  A multiplier or divisor applied to a money amount by `mult/2`,
+  `mult!/2`, `div/2` and `div!/2`.
+
+  """
+  @type multiplier :: number() | Decimal.t()
+
   @enforce_keys [:currency, :amount]
   defstruct currency: nil, amount: nil, format_options: []
 
@@ -1226,7 +1233,7 @@ defmodule Money do
       {:error, {ArgumentError, "Cannot multiply money by \\"xx\\""}}
 
   """
-  @spec mult(Money.t(), Localize.Utils.Math.number_or_decimal()) ::
+  @spec mult(Money.t(), multiplier()) ::
           {:ok, Money.t()} | {:error, {module(), String.t()}}
 
   def mult(%Money{amount: amount} = money, number) when is_integer(number) do
@@ -1270,7 +1277,7 @@ defmodule Money do
       ** (ArgumentError) Cannot multiply money by :invalid
 
   """
-  @spec mult!(Money.t(), Localize.Utils.Math.number_or_decimal()) :: Money.t() | none()
+  @spec mult!(Money.t(), multiplier()) :: Money.t() | none()
 
   def mult!(%Money{} = money, number) do
     case mult(money, number) do
@@ -1306,7 +1313,7 @@ defmodule Money do
       {:error, {ArgumentError, "Cannot divide money by \\"xx\\""}}
 
   """
-  @spec div(Money.t(), Localize.Utils.Math.number_or_decimal()) ::
+  @spec div(Money.t(), multiplier()) ::
           {:ok, Money.t()} | {:error, {module(), String.t()}}
 
   def div(%Money{amount: amount} = money, number) when is_integer(number) do
@@ -1350,7 +1357,7 @@ defmodule Money do
       ** (ArgumentError) Cannot divide money by "xx"
 
   """
-  @spec div!(Money.t(), Localize.Utils.Math.number_or_decimal()) :: Money.t() | none()
+  @spec div!(Money.t(), multiplier()) :: Money.t() | none()
 
   def div!(%Money{} = money, number) do
     case Money.div(money, number) do

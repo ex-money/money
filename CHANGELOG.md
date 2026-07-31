@@ -4,13 +4,13 @@
 
 ## Money v6.2.0
 
-This is the changelog for Money v6.2.0 released on August 1st, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+This is the changelog for Money v6.2.0 released on July 31st, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
 
 ### Enhancements
 
 * The bundled `Money.ExchangeRates.Cache.Ets` and `Money.ExchangeRates.Cache.Dets` now key their storage by the retriever's `:name`, so multiple named retrievers can share one `cache_module` without overwriting each other's rates. The `Money.ExchangeRates.Cache` behaviour gains cache-aware callback arities (`init/1`, `latest_rates/1`, `store_latest_rates/3`, and so on) while the earlier module-wide arities remain supported but deprecated. Thanks to @Wigny for the contribution in #203.
 
-* Supports `localize ~> 1.0-rc`. `Money.Subscription.Plan.to_string/2` now selects the unit width with Localize's `:format` option (`:long`, `:short` or `:narrow`); the former `:style` option keeps working as an undocumented, deprecated alias for `:format`.
+* Supports `localize ~> 1.0`. `Money.Subscription.Plan.to_string/2` now selects the unit width with Localize's `:format` option (`:long`, `:short` or `:narrow`); the former `:style` option keeps working as an undocumented, deprecated alias for `:format`.
 
 * Locale and currency errors originating in `localize` are returned as their structured exception structs (for example `%Localize.InvalidLocaleError{locale_id: ...}`) with semantic fields and lazily localized messages, and the bang functions re-raise them as-is. Public function specs now document this shape as `{:error, Exception.t()}` alongside the `{:error, {module, message}}` tuples used for Money's own errors.
 
@@ -19,6 +19,8 @@ This is the changelog for Money v6.2.0 released on August 1st, 2026. For older c
 * All public functions now carry typespecs, improving dialyzer results for downstream projects.
 
 * Function documentation now uses a uniform heading style with `### Returns` sections throughout the public API.
+
+* `Money.mult/2`, `mult!/2`, `div/2` and `div!/2` are specified with a new public `t:Money.multiplier/0` type (`number() | Decimal.t()`) instead of a type belonging to an internal Localize module, so the published documentation links it rather than referring to a hidden module.
 
 ### Bug Fixes
 

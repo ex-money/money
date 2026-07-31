@@ -104,7 +104,7 @@ defmodule Money.Mixfile do
 
   defp deps do
     [
-      {:localize, "~> 1.0-rc"},
+      {:localize, "~> 1.0"},
       {:digital_token, "~> 2.0", optional: true},
       {:nimble_parsec, "~> 0.5 or ~> 1.0"},
       {:decimal, "~> 1.6 or ~> 2.0 or ~> 3.0"},
