@@ -404,6 +404,10 @@ defmodule MoneyTest do
              Money.new(:CHF, "123.45")
   end
 
+  test "Money is rounded for historic currencies" do
+    assert Money.round(Money.new(:BGN, "12.346")) == Money.new(:BGN, "12.35")
+  end
+
   test "Extract decimal from money" do
     assert Money.to_decimal(Money.new(:USD, 1234)) == Decimal.new(1234)
   end
@@ -715,6 +719,8 @@ defmodule MoneyTest do
              {:error,
               {Money.InvalidDigitsError,
                "Unknown or invalid :currency_digits option, found: :rubbish"}}
+
+    assert Money.from_integer(1234, :BGN) == Money.new(:BGN, "12.34")
   end
 
   if Version.compare(System.version(), "1.18.0") in [:gt, :eq] do
