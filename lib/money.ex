@@ -2934,8 +2934,8 @@ defmodule Money do
     end
   end
 
-  defp do_digits_from_options(currency_data, :iso), do: Map.fetch(currency_data, :iso_digits)
-  defp do_digits_from_options(currency_data, nil), do: Map.fetch(currency_data, :iso_digits)
+  defp do_digits_from_options(currency_data, :iso), do: iso_digits_from_currency(currency_data)
+  defp do_digits_from_options(currency_data, nil), do: iso_digits_from_currency(currency_data)
   defp do_digits_from_options(currency_data, :cash), do: Map.fetch(currency_data, :cash_digits)
   defp do_digits_from_options(currency_data, :accounting), do: Map.fetch(currency_data, :digits)
 
@@ -2944,6 +2944,10 @@ defmodule Money do
 
   defp do_digits_from_options(_currency_data, other),
     do: {:error, invalid_digits_error(other)}
+
+  # Some historic currencies may have no ISO 4217 digit definition
+  defp iso_digits_from_currency(%{iso_digits: nil, digits: d}), do: {:ok, d}
+  defp iso_digits_from_currency(currency_data), do: Map.fetch(currency_data, :iso_digits)
 
   defp invalid_digits_error(other),
     do:
