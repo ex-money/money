@@ -2945,7 +2945,12 @@ defmodule Money do
   defp do_digits_from_options(_currency_data, other),
     do: {:error, invalid_digits_error(other)}
 
-  # Some historic currencies may have no ISO 4217 digit definition
+  # Some historic currencies (for example :BGN) have no ISO 4217 digit
+  # definition and carry `iso_digits: nil`, so we fall back to `:digits`.
+  # Localize <= 1.0.1 types `:iso_digits` as `non_neg_integer()` (never nil),
+  # which makes dialyzer consider the `nil` clause unreachable. The type is
+  # fixed in Localize 1.0.2; remove this suppression once that is the minimum.
+  @dialyzer {:nowarn_function, iso_digits_from_currency: 1}
   defp iso_digits_from_currency(%{iso_digits: nil, digits: d}), do: {:ok, d}
   defp iso_digits_from_currency(currency_data), do: Map.fetch(currency_data, :iso_digits)
 

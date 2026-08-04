@@ -2,6 +2,14 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Money v6.2.1
+
+This is the changelog for Money v6.2.1 released on August 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+
+### Bug Fixes
+
+* `Money.round/2` and `Money.from_integer/2` no longer crash for currencies whose `:iso_digits` is `nil` (such as historic currencies like `:BGN`); they now fall back to the currency's `:digits`. Thanks to @vorce for the report and fix in #205.
+
 ## Money v6.2.0
 
 This is the changelog for Money v6.2.0 released on July 31st, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

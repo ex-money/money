@@ -37,7 +37,7 @@ How is this opinion expressed?
 
 ## Prerequisities
 
-* `Money` is supported on Elixir 1.12 and later only.
+* `Money` is supported on Elixir 1.17 and later only.
 
 ## Migration from 5.x to 6.0
 
@@ -54,7 +54,7 @@ In `mix.exs`, replace the CLDR dependencies with `localize`:
 {:ex_cldr_units, "~> 3.19", optional: true},
 
 # Add this:
-{:localize, "~> 0.1"},
+{:localize, "~> 1.0"},
 ```
 
 ### Remove backend modules
@@ -220,7 +220,7 @@ position — use it in a function body instead, where it is evaluated at runtime
 
 ## Exchange rates and currency conversion
 
-Money includes a process to retrieve exchange rates on a periodic basis. These exchange rates can then be used to support currency conversion. It will attempt to retrieve exchange rates every 5 minutes by default.
+Money includes a process to retrieve exchange rates on a periodic basis. These exchange rates can then be used to support currency conversion. Periodic retrieval is disabled by default (`:exchange_rates_retrieve_every` defaults to `:never`); set it to an interval in milliseconds to enable it.
 
 By default, exchange rates are retrieved from [Open Exchange Rates](http://openexchangerates.org) however any module that conforms to the `Money.ExchangeRates` behaviour can be configured.
 
@@ -231,7 +231,7 @@ An optional callback module can also be defined.  This module defines a `rates_r
 `Money` provides a set of configuration keys to customize behaviour. The default configuration is:
 
     config :ex_money,
-      exchange_rates_retrieve_every: 300_000,
+      exchange_rates_retrieve_every: :never,
       api_module: Money.ExchangeRates.OpenExchangeRates,
       callback_module: Money.ExchangeRates.Callback,
       exchange_rates_cache_module: Money.ExchangeRates.Cache.Ets,
@@ -470,7 +470,7 @@ Note that the amount and currency code arguments to `Money.new/3` can be supplie
   Money.new(:USD, "100")
 
   # Note that the decimal separator in the "de" locale
-  # is a `.`
+  # is a `,`
   iex> Money.parse "AU$ 12346,45", locale: "de"
   Money.new(:AUD, "12346.45")
 
