@@ -144,16 +144,16 @@ defmodule Money.ExchangeRates.Retriever do
   """
 
   @spec historic_rates(Calendar.date()) ::
-          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {module(), binary}}
   @spec historic_rates(Date.Range.t()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(date_or_range) when is_map(date_or_range) do
     historic_rates(__MODULE__, date_or_range)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date()) ::
-          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {module(), binary}}
   def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date)
       when is_retriever(retriever) do
     case GenServer.whereis(retriever) do
@@ -171,8 +171,8 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @spec historic_rates(GenServer.server(), Date.Range.t()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(retriever, %Date.Range{} = range) do
     case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
@@ -199,15 +199,15 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   @spec historic_rates(Calendar.date(), Calendar.date()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(from, to) when is_map(from) and is_map(to) do
     historic_rates(__MODULE__, from, to)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date(), Calendar.date()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(
         retriever,
         %Date{calendar: Calendar.ISO} = from,
