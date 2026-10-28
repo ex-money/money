@@ -1,16 +1,13 @@
 name: Elixir CI
 
-# Define workflow that runs when changes are pushed to the
-# `main` branch or pushed to a PR branch that targets the `main`
-# branch. Change the branch name if your project uses a
-# different name for the main branch like "master" or "production".
+# Runs when changes are pushed to `main`, or pushed to a pull request
+# branch that targets `main`.
 on:
   push:
-    branches: [ "main" ]  # adapt branch for project
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]  # adapt branch for project
+    branches: [ "main" ]
 
-# Sets the ENV `MIX_ENV` to `test` for running tests
 env:
   MIX_ENV: test
 
@@ -20,116 +17,100 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Test on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    name: "Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}${{ matrix.lint && ' (lint)' || '' }}"
     strategy:
       # Run every matrix entry to completion. A failure (or flake) in one
       # toolchain must not cancel the others, otherwise it masks their result.
       fail-fast: false
-      # Specify the OTP and Elixir versions to use when building
-      # and running the workflow steps.
+      # Each Elixir minor on every OTP major it supports, each at its latest
+      # patch release. The last entry is the canonical (lint) one.
       matrix:
         include:
-          - otp: "26.2"
-            elixir: "1.17.2-otp-26"
-          - otp: "27.2.4"
-            elixir: "1.17.2-otp-27"
-          - otp: "27.2.4"
-            elixir: "1.18.4-otp-27"
-          - otp: "28.3.1"
-            elixir: "1.18.4-otp-28"
-          - otp: "27.2.4"
-            elixir: "1.19.5-otp-27"
-          - otp: "28.3.1"
-            elixir: "1.19.5-otp-28"
-          - otp: "27.2.4"
-            elixir: "1.20.2-otp-27"
-          - otp: "28.3.1"
-            elixir: "1.20.2-otp-28"
-          - otp: "29.0.1"
-            elixir: "1.20.2-otp-29"
+          - elixir: "1.17.3-otp-26"
+            otp: "26.2.5.21"
+          - elixir: "1.17.3-otp-27"
+            otp: "27.3.4.19"
+          - elixir: "1.18.5-otp-26"
+            otp: "26.2.5.21"
+          - elixir: "1.18.5-otp-27"
+            otp: "27.3.4.19"
+          - elixir: "1.19.6-otp-26"
+            otp: "26.2.5.21"
+          - elixir: "1.19.6-otp-27"
+            otp: "27.3.4.19"
+          - elixir: "1.19.6-otp-28"
+            otp: "28.5.0.8"
+          - elixir: "1.20.4-otp-27"
+            otp: "27.3.4.19"
+          - elixir: "1.20.4-otp-28"
+            otp: "28.5.0.8"
+          - elixir: "1.20.4-otp-29"
+            otp: "29.1.2"
             lint: true
     steps:
-    # Step: Setup Elixir + Erlang image as the base.
-    - name: Set up Elixir
-      uses: erlef/setup-beam@v1
-      with:
-        otp-version: ${{matrix.otp}}
-        elixir-version: ${{matrix.elixir}}
+      - name: Checkout
+        uses: actions/checkout@v7
 
-    # Step: Check out the code.
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
 
-    # Step: Define how to cache deps. Restores existing cache if present.
-    - name: Cache deps
-      id: cache-deps
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-elixir-deps
-      with:
-        path: deps
-        key: ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-
+      # deps and _build hold compiled BEAMs, which are tied to the OTP and
+      # Elixir versions, so the key and its fallback are both scoped to them.
+      - name: Restore dependency cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            deps
+            _build
+          key: mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            mix-${{ matrix.elixir }}-${{ matrix.otp }}-
 
-    # Step: Define how to cache the `_build` directory. After the first run,
-    # this speeds up tests runs a lot. This includes not re-compiling our
-    # project's downloaded deps every run.
-    - name: Cache compiled build
-      id: cache-build
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-compiled-build
-      with:
-        path: _build
-        key: ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-
+      - name: Install dependencies
+        run: mix deps.get
 
-    # Step: Download project dependencies. If unchanged, uses
-    # the cached version.
-    - name: Install dependencies
-      run: mix deps.get
+      - name: Check formatting
+        if: matrix.lint
+        run: mix format --check-formatted
 
-    # Step: Compile the project treating any warnings as errors.
-    - name: Compiles without warnings
-      run: mix compile --warnings-as-errors
+      - name: Run credo
+        if: matrix.lint
+        run: mix credo --strict
 
-    # Step: Check that the checked-in code has already been formatted.
-    # Only runs on the canonical (lint) matrix entry — formatting
-    # rules can shift between Elixir minor versions and we only
-    # enforce the latest.
-    - name: Check formatting
-      if: ${{ matrix.lint }}
-      run: mix format --check-formatted
+      - name: Compile (warnings as errors)
+        run: mix compile --warnings-as-errors
 
-    # Step: Execute the tests on every matrix entry except the canonical
-    # (lint) one, where they are run under coverage instead (see below).
-    - name: Run tests
-      if: ${{ !matrix.lint }}
-      run: mix test
+      - name: Run tests
+        if: ${{ !matrix.lint }}
+        run: mix test
 
-    # Step: Run Credo. Only on the canonical (lint) matrix entry — Credo
-    # results are consistent across toolchains so it is enforced once.
-    - name: Run Credo
-      if: ${{ matrix.lint }}
-      run: mix credo --strict
+      # On the lint entry the suite runs under coverage instead, enforcing
+      # the minimum threshold configured in coveralls.json.
+      - name: Run tests with coverage
+        if: matrix.lint
+        run: mix coveralls
 
-    # Step: Run the tests under coverage and enforce the minimum coverage
-    # threshold configured in coveralls.json. Only on the canonical (lint)
-    # entry; this also runs the full test suite, so the plain `mix test`
-    # step above is skipped there.
-    - name: Run tests with coverage
-      if: ${{ matrix.lint }}
-      run: mix coveralls
+      - name: Restore PLT cache
+        if: matrix.lint
+        uses: actions/cache@v6
+        with:
+          path: _build/dev/dialyxir_*
+          key: plt-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            plt-${{ matrix.elixir }}-${{ matrix.otp }}-
 
-    # Step: Execute dialyzer. Only on the lint matrix entry —
-    # dialyzer output varies across OTP versions and we pin
-    # the canonical check to one row. Forced to MIX_ENV=dev
-    # because dialyxir is declared `only: :dev` and the rest
-    # of this workflow runs under MIX_ENV=test.
-    - name: Run dialyzer
-      if: ${{ matrix.lint }}
-      env:
-        MIX_ENV: dev
-      run: mix dialyzer
+      # dialyxir is a dev dependency, so dialyzer runs under MIX_ENV=dev.
+      - name: Run dialyzer
+        if: matrix.lint
+        env:
+          MIX_ENV: dev
+        run: mix dialyzer
+
+      - name: Check docs
+        if: matrix.lint
+        env:
+          MIX_ENV: release
+        run: mix docs --warnings-as-errors
