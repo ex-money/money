@@ -113,10 +113,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec latest_rates(GenServer.server()) ::
           {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def latest_rates(retriever \\ __MODULE__) do
-    case GenServer.whereis(retriever) do
-      nil -> {:error, exchange_rate_service_error()}
-      pid -> GenServer.call(pid, :latest_rates)
-    end
+    call_retriever(retriever, :latest_rates)
   end
 
   @doc """
@@ -156,10 +153,7 @@ defmodule Money.ExchangeRates.Retriever do
           {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date)
       when is_retriever(retriever) do
-    case GenServer.whereis(retriever) do
-      nil -> {:error, exchange_rate_service_error()}
-      pid -> GenServer.call(pid, {:historic_rates, date})
-    end
+    call_retriever(retriever, {:historic_rates, date})
   end
 
   def historic_rates(retriever, %{year: year, month: month, day: day})
@@ -233,10 +227,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec latest_rates_available?(GenServer.server()) :: boolean
   def latest_rates_available?(retriever \\ __MODULE__) do
-    case GenServer.whereis(retriever) do
-      nil -> false
-      pid -> GenServer.call(pid, :latest_rates_available?)
-    end
+    call_retriever(retriever, :latest_rates_available?) == true
   end
 
   @doc """
@@ -252,10 +243,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated(retriever \\ __MODULE__) do
-    case GenServer.whereis(retriever) do
-      nil -> {:error, exchange_rate_service_error()}
-      pid -> GenServer.call(pid, :last_updated)
-    end
+    call_retriever(retriever, :last_updated)
   end
 
   @doc """
@@ -266,10 +254,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec reconfigure(GenServer.name(), ExchangeRates.Config.t()) ::
           ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def reconfigure(retriever \\ __MODULE__, %ExchangeRates.Config{} = config) do
-    case GenServer.whereis(retriever) do
-      nil -> {:error, exchange_rate_service_error()}
-      pid -> GenServer.call(pid, {:reconfigure, config})
-    end
+    call_retriever(retriever, {:reconfigure, config})
   end
 
   @doc """
@@ -280,10 +265,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec config(GenServer.name()) ::
           ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def config(retriever \\ __MODULE__) do
-    case GenServer.whereis(retriever) do
-      nil -> {:error, exchange_rate_service_error()}
-      pid -> GenServer.call(pid, :config)
-    end
+    call_retriever(retriever, :config)
   end
 
   @doc deprecated:
@@ -618,6 +600,14 @@ defmodule Money.ExchangeRates.Retriever do
       Localize.Number.to_string(seconds)
 
     {formatted_seconds, plural}
+  end
+
+  # The retriever can exit between a name lookup and the call, so the
+  # call itself decides whether the service is running.
+  defp call_retriever(retriever, request) do
+    GenServer.call(retriever, request)
+  catch
+    :exit, {:noproc, _} -> {:error, exchange_rate_service_error()}
   end
 
   defp exchange_rate_service_error do

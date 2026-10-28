@@ -1828,10 +1828,10 @@ defmodule Money do
   * `money_list` is a list of any valid `t:Money.t/0` types returned
     by `Money.new/2`.
 
-  * `rates` is a map of exchange rates. The default is the rates
-    returned by `Money.ExchangeRates.latest_rates/0`. If the
-    exchange rates retriever is not running, then the default is
-    `%{}`.
+  * `rates` is a map of exchange rates. `sum/1` and `sum!/1` use the
+    rates returned by `Money.ExchangeRates.latest_rates/0`, or `%{}` if
+    the exchange rates retriever is not running. They only look up
+    rates when `money_list` holds more than one currency.
 
   ### Returns
 
@@ -1862,8 +1862,6 @@ defmodule Money do
         ) ::
           {:ok, t()} | {:error, {module(), String.t()}}
 
-  def sum(money_list, rates \\ latest_rates_or_empty_map())
-
   def sum(money_list, {:ok, rates}) when is_map(rates) do
     sum(money_list, rates)
   end
@@ -1884,6 +1882,15 @@ defmodule Money do
   end
 
   @doc """
+  Sum a list of monies with the default exchange rates. See `sum/2`.
+  """
+  @doc since: "5.3.0"
+  @spec sum([t(), ...]) :: {:ok, t()} | {:error, {module(), String.t()}}
+  def sum(money_list) do
+    sum(money_list, default_rates(money_list))
+  end
+
+  @doc """
   Sum a list of monies that may be in different
   currencies or raise an exception on error.
 
@@ -1892,10 +1899,10 @@ defmodule Money do
   * `money_list` is a list of any valid `t:Money.t/0` types returned
     by `Money.new/2`.
 
-  * `rates` is a map of exchange rates. The default is the rates
-    returned by `Money.ExchangeRates.latest_rates/0`. If the
-    exchange rates retriever is not running, then the default is
-    `%{}`.
+  * `rates` is a map of exchange rates. `sum/1` and `sum!/1` use the
+    rates returned by `Money.ExchangeRates.latest_rates/0`, or `%{}` if
+    the exchange rates retriever is not running. They only look up
+    rates when `money_list` holds more than one currency.
 
   ### Returns
 
@@ -1924,17 +1931,32 @@ defmodule Money do
         ) ::
           t() | no_return()
 
-  def sum!(money_list, rates \\ latest_rates_or_empty_map()) do
+  def sum!(money_list, rates) do
     case sum(money_list, rates) do
       {:ok, result} -> result
       {:error, {exception, message}} -> raise exception, message
     end
   end
 
-  defp latest_rates_or_empty_map do
-    case Money.ExchangeRates.latest_rates() do
-      {:error, _} -> %{}
-      {:ok, map} when is_map(map) -> map
+  @doc """
+  Sum a list of monies with the default exchange rates. See `sum!/2`.
+  """
+  @doc since: "5.3.0"
+  @spec sum!([t(), ...]) :: t() | no_return()
+  def sum!(money_list) do
+    sum!(money_list, default_rates(money_list))
+  end
+
+  # A list in one currency needs no conversion, so it skips the
+  # exchange rates retriever.
+  defp default_rates([%Money{currency: currency} | rest]) do
+    if Enum.all?(rest, &match?(%Money{currency: ^currency}, &1)) do
+      %{}
+    else
+      case Money.ExchangeRates.latest_rates() do
+        {:error, _} -> %{}
+        {:ok, map} when is_map(map) -> map
+      end
     end
   end
 
