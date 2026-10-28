@@ -12,6 +12,8 @@ This is the changelog for Money v6.2.2 released on October 28th, 2026. For older
 
 * `Money.sum/1` and `Money.sum!/1` no longer look up exchange rates when every money is in the same currency, and the `Money.ExchangeRates.Retriever` lookup functions return the "not running" error instead of exiting the caller when the retriever has stopped before the call. Thanks to @rubas for the fix in #210.
 
+* Exchange rates errors are always `{:error, {module, message}}`: the Open Exchange Rates missing `app_id` error, a bare or other reason from a custom API module, and an invalid date given to `Money.ExchangeRates.Retriever.historic_rates/2,3` (previously `{:error, :invalid_date}`, or a raise for non-integer fields) now return `Money.ExchangeRateError` tuples. The retriever, `Money.ExchangeRates`, cache and API behaviour specs, and `Money.Subscription.Change`'s `credit_period_ends`, now describe what is returned; thanks to @lukaszsamson for #211.
+
 ## Money v6.2.1
 
 This is the changelog for Money v6.2.1 released on August 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

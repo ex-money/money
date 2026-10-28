@@ -67,7 +67,9 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
       config = init_config(app_id: nil)
 
       assert OpenExchangeRates.get_latest_rates(config) ==
-               {:error, "Open Exchange Rates app_id is not configured. Rates are not retrieved."}
+               {:error,
+                {Money.ExchangeRateError,
+                 "Open Exchange Rates app_id is not configured. Rates are not retrieved."}}
     end
 
     test "retrieves and returns the decoded rates map", %{config: config} do
@@ -88,7 +90,9 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
       config = init_config(app_id: nil)
 
       assert OpenExchangeRates.get_historic_rates(~D[2024-01-15], config) ==
-               {:error, "Open Exchange Rates app_id is not configured. Rates are not retrieved."}
+               {:error,
+                {Money.ExchangeRateError,
+                 "Open Exchange Rates app_id is not configured. Rates are not retrieved."}}
     end
 
     test "retrieves rates for a Date struct", %{config: config} do

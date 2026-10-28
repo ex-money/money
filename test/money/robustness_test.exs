@@ -19,6 +19,38 @@ defmodule Money.RobustnessTest do
     def get_historic_rates(_date, _config), do: raise(ArgumentError, "malformed provider response")
   end
 
+  # An exchange rates API module that returns its error reason as a bare
+  # message, as the `Money.ExchangeRates` behaviour once documented.
+  defmodule BareMessageApi do
+    @behaviour Money.ExchangeRates
+
+    @impl true
+    def get_latest_rates(_config) do
+      {:error, "provider is unavailable"}
+    end
+
+    @impl true
+    def get_historic_rates(_date, _config) do
+      {:error, "provider is unavailable"}
+    end
+  end
+
+  # An exchange rates API module whose error reason is neither a message nor a
+  # `{module, message}` tuple.
+  defmodule OddReasonApi do
+    @behaviour Money.ExchangeRates
+
+    @impl true
+    def get_latest_rates(_config) do
+      {:error, :timeout}
+    end
+
+    @impl true
+    def get_historic_rates(_date, _config) do
+      {:error, :timeout}
+    end
+  end
+
   # A callback module that always raises, simulating a defective user callback.
   defmodule RaisingCallback do
     @behaviour Money.ExchangeRates.Callback
@@ -155,6 +187,33 @@ defmodule Money.RobustnessTest do
     pid = start_supervised!({Retriever, [name: name, config: config]}, id: name)
     _ = :sys.get_state(pid)
     {name, pid}
+  end
+
+  describe "retriever error normalization" do
+    test "a bare message from the api module is returned as an ExchangeRateError tuple" do
+      {name, _pid} = start_retriever(api_config(BareMessageApi))
+      error = {:error, {Money.ExchangeRateError, "provider is unavailable"}}
+
+      assert Retriever.latest_rates(name) == error
+      assert Retriever.historic_rates(name, ~D[2026-01-01]) == error
+    end
+
+    test "any other reason from the api module is inspected into an ExchangeRateError tuple" do
+      {name, _pid} = start_retriever(api_config(OddReasonApi))
+      error = {:error, {Money.ExchangeRateError, ":timeout"}}
+
+      assert Retriever.latest_rates(name) == error
+      assert Retriever.historic_rates(name, ~D[2026-01-01]) == error
+    end
+  end
+
+  defp api_config(api_module) do
+    %{
+      Money.ExchangeRates.default_config()
+      | api_module: api_module,
+        cache_module: EmptyCache,
+        log_levels: %{success: nil, failure: nil, info: nil}
+    }
   end
 
   describe "retriever exception boundaries" do

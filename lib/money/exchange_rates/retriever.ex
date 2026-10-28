@@ -111,7 +111,7 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   @spec latest_rates(GenServer.server()) ::
-          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {module(), binary}}
   def latest_rates(retriever \\ __MODULE__) do
     call_retriever(retriever, :latest_rates)
   end
@@ -141,32 +141,31 @@ defmodule Money.ExchangeRates.Retriever do
   """
 
   @spec historic_rates(Calendar.date()) ::
-          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {module(), binary}}
   @spec historic_rates(Date.Range.t()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(date_or_range) when is_map(date_or_range) do
     historic_rates(__MODULE__, date_or_range)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date()) ::
-          {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
+          {:ok, ExchangeRates.t()} | {:error, {module(), binary}}
   def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date)
       when is_retriever(retriever) do
     call_retriever(retriever, {:historic_rates, date})
   end
 
-  def historic_rates(retriever, %{year: year, month: month, day: day})
+  def historic_rates(retriever, %{year: _year, month: _month, day: _day} = date)
       when is_retriever(retriever) do
-    case Date.new(year, month, day) do
-      {:ok, date} -> historic_rates(retriever, date)
-      error -> error
+    with {:ok, iso_date} <- date_from_map(date) do
+      historic_rates(retriever, iso_date)
     end
   end
 
   @spec historic_rates(GenServer.server(), Date.Range.t()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(retriever, %Date.Range{} = range) do
     case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
@@ -193,15 +192,15 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   @spec historic_rates(Calendar.date(), Calendar.date()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(from, to) when is_map(from) and is_map(to) do
     historic_rates(__MODULE__, from, to)
   end
 
   @spec historic_rates(GenServer.server(), Calendar.date(), Calendar.date()) ::
-          [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary}}
+          [{:ok, ExchangeRates.t()} | {:error, {module(), binary}}]
+          | {:error, {module(), binary}}
   def historic_rates(
         retriever,
         %Date{calendar: Calendar.ISO} = from,
@@ -211,11 +210,31 @@ defmodule Money.ExchangeRates.Retriever do
     historic_rates(retriever, range)
   end
 
-  def historic_rates(retriever, %{year: y1, month: m1, day: d1}, %{year: y2, month: m2, day: d2}) do
-    with {:ok, from} <- Date.new(y1, m1, d1),
-         {:ok, to} <- Date.new(y2, m2, d2) do
-      historic_rates(retriever, from, to)
+  def historic_rates(
+        retriever,
+        %{year: _from_year, month: _from_month, day: _from_day} = from,
+        %{year: _to_year, month: _to_month, day: _to_day} = to
+      ) do
+    with {:ok, from_date} <- date_from_map(from),
+         {:ok, to_date} <- date_from_map(to) do
+      historic_rates(retriever, from_date, to_date)
     end
+  end
+
+  defp date_from_map(%{year: year, month: month, day: day} = date)
+       when is_integer(year) and is_integer(month) and is_integer(day) do
+    case Date.new(year, month, day) do
+      {:ok, iso_date} -> {:ok, iso_date}
+      {:error, _reason} -> {:error, invalid_date_error(date)}
+    end
+  end
+
+  defp date_from_map(date) do
+    {:error, invalid_date_error(date)}
+  end
+
+  defp invalid_date_error(date) do
+    {Money.ExchangeRateError, "#{inspect(date)} is not a valid date"}
   end
 
   @doc """
@@ -241,7 +260,7 @@ defmodule Money.ExchangeRates.Retriever do
     occurred yet.
 
   """
-  @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {module(), binary}}
   def last_updated(retriever \\ __MODULE__) do
     call_retriever(retriever, :last_updated)
   end
@@ -490,13 +509,34 @@ defmodule Money.ExchangeRates.Retriever do
   # would put the retriever into a rapid crash loop that can exhaust the
   # supervisor's restart intensity and take down the host application.
   defp call_api_module(config, function_name, arguments) do
-    apply(config.api_module, function_name, arguments)
+    result = apply(config.api_module, function_name, arguments)
+    normalize_api_error(result)
   rescue
     exception ->
       {:error,
        {Money.ExchangeRateError,
         "#{inspect(config.api_module)}.#{function_name} raised " <>
           "#{inspect(exception.__struct__)}: #{Exception.message(exception)}"}}
+  end
+
+  # The retriever always returns `{:error, {module, message}}`, as the rest of
+  # ex_money does. An API module may still return a bare message, or any other
+  # term, as the reason, so it is wrapped in a `Money.ExchangeRateError` here.
+  defp normalize_api_error({:error, {module, message}} = error)
+       when is_atom(module) and is_binary(message) do
+    error
+  end
+
+  defp normalize_api_error({:error, message}) when is_binary(message) do
+    {:error, {Money.ExchangeRateError, message}}
+  end
+
+  defp normalize_api_error({:error, reason}) do
+    {:error, {Money.ExchangeRateError, inspect(reason)}}
+  end
+
+  defp normalize_api_error(result) do
+    result
   end
 
   # Callbacks are user-configured code invoked after a successful retrieval —

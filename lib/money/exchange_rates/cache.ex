@@ -63,29 +63,29 @@ defmodule Money.ExchangeRates.Cache do
   cache.
   """
   @callback latest_rates(cache()) ::
-              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
+              {:ok, ExchangeRates.t()} | {:error, {module(), String.t()}}
 
   @doc deprecated: "Use latest_rates/1 instead"
-  @callback latest_rates() :: {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
+  @callback latest_rates() :: {:ok, ExchangeRates.t()} | {:error, {module(), String.t()}}
 
   @doc """
   Retrieve the exchange rates for a given
   date.
   """
   @callback historic_rates(cache(), Date.t()) ::
-              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
+              {:ok, ExchangeRates.t()} | {:error, {module(), String.t()}}
 
   @doc deprecated: "Use historic_rates/2 instead"
   @callback historic_rates(Date.t()) ::
-              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
+              {:ok, ExchangeRates.t()} | {:error, {module(), String.t()}}
 
   @doc """
   Return the timestamp when the exchange rates were last updated.
   """
-  @callback last_updated(cache()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), String.t()}}
+  @callback last_updated(cache()) :: {:ok, DateTime.t()} | {:error, {module(), String.t()}}
 
   @doc deprecated: "Use last_updated/1 instead"
-  @callback last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), String.t()}}
+  @callback last_updated() :: {:ok, DateTime.t()} | {:error, {module(), String.t()}}
 
   @doc """
   Store the latest exchange rates in the cache.

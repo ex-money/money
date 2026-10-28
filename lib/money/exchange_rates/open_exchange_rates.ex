@@ -157,6 +157,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   defp app_id_not_configured do
-    "Open Exchange Rates app_id is not configured. Rates are not retrieved."
+    {Money.ExchangeRateError,
+     "Open Exchange Rates app_id is not configured. Rates are not retrieved."}
   end
 end

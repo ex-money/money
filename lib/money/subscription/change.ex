@@ -40,7 +40,7 @@ defmodule Money.Subscription.Change do
           credit_amount_applied: Money.t(),
           credit_amount: Money.t(),
           credit_days_applied: non_neg_integer(),
-          credit_period_ends: Date.t(),
+          credit_period_ends: Date.t() | nil,
           carry_forward: Money.t()
         }
 

@@ -120,7 +120,17 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error for an invalid date-compatible struct" do
-      assert Retriever.historic_rates(%{year: 2017, month: 13, day: 1}) == {:error, :invalid_date}
+      assert {:error, {Money.ExchangeRateError, message}} =
+               Retriever.historic_rates(%{year: 2017, month: 13, day: 1})
+
+      assert message =~ "is not a valid date"
+    end
+
+    test "returns an error rather than raising for non-integer date fields" do
+      assert {:error, {Money.ExchangeRateError, message}} =
+               Retriever.historic_rates(%{year: "2017", month: 1, day: 1})
+
+      assert message =~ "is not a valid date"
     end
   end
 
@@ -162,13 +172,17 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error for an invalid from date" do
-      assert Retriever.historic_rates(%{year: 2017, month: 13, day: 1}, ~N[2017-01-02 00:00:00]) ==
-               {:error, :invalid_date}
+      assert {:error, {Money.ExchangeRateError, message}} =
+               Retriever.historic_rates(%{year: 2017, month: 13, day: 1}, ~N[2017-01-02 00:00:00])
+
+      assert message =~ "is not a valid date"
     end
 
     test "returns an error for an invalid to date" do
-      assert Retriever.historic_rates(~N[2017-01-01 00:00:00], %{year: 2017, month: 13, day: 1}) ==
-               {:error, :invalid_date}
+      assert {:error, {Money.ExchangeRateError, message}} =
+               Retriever.historic_rates(~N[2017-01-01 00:00:00], %{year: 2017, month: 13, day: 1})
+
+      assert message =~ "is not a valid date"
     end
   end
 

@@ -112,7 +112,7 @@ defmodule Money.ExchangeRates do
 
   """
   @callback get_latest_rates(config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, t() | :not_modified} | {:error, binary}
+              {:ok, t() | :not_modified} | {:error, {module(), binary} | binary}
 
   @doc """
   Invoked to return the historic exchange rates from the configured
@@ -127,7 +127,7 @@ defmodule Money.ExchangeRates do
 
   """
   @callback get_historic_rates(Date.t(), config :: Money.ExchangeRates.Config.t()) ::
-              {:ok, t() | :not_modified} | {:error, binary}
+              {:ok, t() | :not_modified} | {:error, {module(), binary} | binary}
 
   @doc """
   Given the default configuration, returns an updated configuration at runtime
@@ -244,7 +244,7 @@ defmodule Money.ExchangeRates do
   through `Money.ExchangeRates.Retriever.latest_rates/0`.
 
   """
-  @spec latest_rates() :: {:ok, t()} | {:error, {Exception.t(), binary}}
+  @spec latest_rates() :: {:ok, t()} | {:error, {module(), binary}}
   def latest_rates do
     Retriever.latest_rates()
   end
@@ -268,9 +268,9 @@ defmodule Money.ExchangeRates do
   through `Money.ExchangeRates.Retriever.historic_rates/1`.
 
   """
-  @spec historic_rates(Calendar.date()) :: {:ok, t()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Calendar.date()) :: {:ok, t()} | {:error, {module(), binary}}
   @spec historic_rates(Date.Range.t()) ::
-          [{:ok, t()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+          [{:ok, t()} | {:error, {module(), binary}}] | {:error, {module(), binary}}
   def historic_rates(date) do
     Retriever.historic_rates(date)
   end
@@ -304,7 +304,7 @@ defmodule Money.ExchangeRates do
         utc_offset: 0, year: 2016, zone_abbr: "UTC"}}
 
   """
-  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {module(), binary}}
   def last_updated do
     Retriever.last_updated()
   end
