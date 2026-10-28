@@ -3,6 +3,11 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
 
   alias Money.ExchangeRates.OpenExchangeRates
 
+  # The application env keys these tests change. Each test restores them as
+  # it found them: `config/test.exs` sets the app id from
+  # OPEN_EXCHANGE_RATES_APP_ID, which later tests still need.
+  @env_keys [:open_exchange_rates_app_id, :open_exchange_rates_url, :exchange_rates_http_client]
+
   defmodule HttpMock do
     @rates_body ~c({"base":"USD","rates":{"USD":1.0,"EUR":0.9,"AUD":1.5}})
 
@@ -23,11 +28,8 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
   end
 
   setup do
-    on_exit(fn ->
-      Application.delete_env(:ex_money, :open_exchange_rates_app_id)
-      Application.delete_env(:ex_money, :open_exchange_rates_url)
-      Application.delete_env(:ex_money, :exchange_rates_http_client)
-    end)
+    previous = for key <- @env_keys, do: {key, Application.fetch_env(:ex_money, key)}
+    on_exit(fn -> Enum.each(previous, &restore_env/1) end)
 
     :ok
   end
@@ -54,6 +56,10 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
     end
 
     test "sets app_id to nil when not configured" do
+      # Not configured at all: `config/test.exs` reads it from the
+      # environment, which may be set where the tests run.
+      Application.delete_env(:ex_money, :open_exchange_rates_app_id)
+
       config = OpenExchangeRates.init(Money.ExchangeRates.default_config())
 
       assert config.retriever_options.app_id == nil
@@ -116,5 +122,13 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
     Application.put_env(:ex_money, :exchange_rates_http_client, HttpMock)
 
     OpenExchangeRates.init(Money.ExchangeRates.default_config())
+  end
+
+  defp restore_env({key, {:ok, value}}) do
+    Application.put_env(:ex_money, key, value)
+  end
+
+  defp restore_env({key, :error}) do
+    Application.delete_env(:ex_money, key)
   end
 end
