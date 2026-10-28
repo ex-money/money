@@ -773,8 +773,10 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`.
 
-  * `options` is a keyword list, or a validated options struct accepted by
-    `Localize.Number.to_string/2`.
+  * `options` is a keyword list, or a `t:Localize.Number.Format.Options.t/0`
+    struct returned by `Localize.Number.Format.Options.validate_options/2`
+    with `currency:` set to the currency of `money`. A struct for any other
+    currency returns an error.
 
   ### Returns
 
@@ -828,7 +830,7 @@ defmodule Money do
       {:ok, "১০০.০০€"}
 
   """
-  @spec to_string(Money.t(), Keyword.t() | map()) ::
+  @spec to_string(Money.t(), Keyword.t() | Localize.Number.Format.Options.t()) ::
           {:ok, String.t()} | {:error, {module, String.t()}} | {:error, Exception.t()}
 
   def to_string(money, options \\ [])
@@ -860,17 +862,26 @@ defmodule Money do
     end
   end
 
-  def to_string(%Money{} = money, %Localize.Number.Format.Options{} = options) do
-    format_options = Map.get(money, :format_options, [])
-
+  # The struct holds the symbol, pattern and digits resolved for one
+  # currency, so it can only format money in that currency.
+  def to_string(
+        %Money{currency: code} = money,
+        %Localize.Number.Format.Options{currency: %Localize.Currency{code: code}} = options
+      ) do
     options =
-      format_options
-      |> Map.new()
-      |> Map.merge(options)
-      |> Map.put(:currency, currency_for_format(money.currency))
-      |> maybe_no_fractional_digits(money)
+      if integer?(money) && money.format_options[:no_fraction_if_integer] do
+        %{options | fractional_digits: 0}
+      else
+        options
+      end
 
     Localize.Number.to_string(money.amount, options)
+  end
+
+  def to_string(%Money{currency: code}, %Localize.Number.Format.Options{}) do
+    {:error,
+     {Money.FormatError,
+      "The options struct must be validated with currency: #{inspect(code)} to format this money"}}
   end
 
   # Custom and private currencies are registered at runtime in
@@ -892,14 +903,11 @@ defmodule Money do
 
   defp maybe_no_fractional_digits(options, money) do
     if integer?(money) && options[:no_fraction_if_integer] do
-      put_option(options, :fractional_digits, 0)
+      Keyword.put(options, :fractional_digits, 0)
     else
       options
     end
   end
-
-  defp put_option(%{} = options, option, value), do: Map.put(options, option, value)
-  defp put_option(options, option, value), do: Keyword.put(options, option, value)
 
   defp translate_format_option(options) when is_list(options) do
     case Keyword.get(options, :format) do
@@ -943,8 +951,10 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`.
 
-  * `options` is a keyword list, or a validated options struct accepted by
-    `Localize.Number.to_string/2`.
+  * `options` is a keyword list, or a `t:Localize.Number.Format.Options.t/0`
+    struct returned by `Localize.Number.Format.Options.validate_options/2`
+    with `currency:` set to the currency of `money`. A struct for any other
+    currency returns an error.
 
   ### Options
 
@@ -972,7 +982,7 @@ defmodule Money do
       "1,234.00 US dollars"
 
   """
-  @spec to_string!(Money.t(), Keyword.t() | map()) ::
+  @spec to_string!(Money.t(), Keyword.t() | Localize.Number.Format.Options.t()) ::
           String.t() | no_return()
 
   def to_string!(%Money{} = money, options \\ []) do

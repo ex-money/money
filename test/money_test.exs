@@ -217,6 +217,44 @@ defmodule MoneyTest do
     end
   end
 
+  describe "to_string/2 with a validated options struct" do
+    alias Localize.Number.Format.Options
+
+    setup do
+      {:ok, options} = Options.validate_options(0, currency: :CHF, locale: :en)
+      %{chf_options: options}
+    end
+
+    test "formats CHF 70 and CHF 70.00 as CHF 70.00", %{chf_options: options} do
+      assert Money.to_string(Money.new(:CHF, 70), options) == {:ok, "CHF 70.00"}
+      assert Money.to_string(Money.new(:CHF, "70.00"), options) == {:ok, "CHF 70.00"}
+    end
+
+    test "formats CHF 70 as CHF 70 and CHF 70.50 as CHF 70.50 with no_fraction_if_integer", %{
+      chf_options: options
+    } do
+      assert Money.to_string(Money.new(:CHF, 70, no_fraction_if_integer: true), options) ==
+               {:ok, "CHF 70"}
+
+      assert Money.to_string(Money.new(:CHF, "70.50", no_fraction_if_integer: true), options) ==
+               {:ok, "CHF 70.50"}
+    end
+
+    test "returns an error for EUR 1234.56 with CHF options", %{chf_options: options} do
+      assert {:error, {Money.FormatError, message}} =
+               Money.to_string(Money.new(:EUR, "1234.56"), options)
+
+      assert message =~ "currency: :EUR"
+    end
+
+    test "returns an error for CHF 70 with options validated without a currency" do
+      {:ok, options} = Options.validate_options(0, locale: :en)
+
+      assert {:error, {Money.FormatError, _message}} =
+               Money.to_string(Money.new(:CHF, 70), options)
+    end
+  end
+
   test "abs value of a negative value returns positive value" do
     assert Money.abs(Money.new(:USD, -100)) == Money.new(:USD, 100)
   end
