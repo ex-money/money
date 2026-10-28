@@ -2,6 +2,16 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Money v6.2.2
+
+This is the changelog for Money v6.2.2 released on October 28th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+
+### Bug Fixes
+
+* `Money.to_string/2` given a `Localize.Number.Format.Options` struct formats a whole amount instead of raising, and returns `{:error, {Money.FormatError, message}}` when the struct was validated for a different currency, or without one, rather than formatting the money with that other currency's symbol. Thanks to @rubas for the fix in #207.
+
+* `Money.sum/1` and `Money.sum!/1` no longer look up exchange rates when every money is in the same currency, and the `Money.ExchangeRates.Retriever` lookup functions return the "not running" error instead of exiting the caller when the retriever has stopped before the call. Thanks to @rubas for the fix in #210.
+
 ## Money v6.2.1
 
 This is the changelog for Money v6.2.1 released on August 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
