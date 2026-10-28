@@ -1,6 +1,6 @@
 # `Money.to_range_string/3` — formatting money ranges
 
-**Status:** planning, last updated 2026-05-15
+**Status:** planning, 2026-05-15
 
 **Owner:** Money maintainers
 

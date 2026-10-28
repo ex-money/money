@@ -1,6 +1,6 @@
 # `money_input` — localizable number and money form input with Phoenix LiveView component
 
-**Status:** planning, last updated 2026-05-15
+**Status:** planning, 2026-05-15
 
 **Owner:** Money maintainers
 

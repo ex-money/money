@@ -1,6 +1,6 @@
 # `money_tax` — tax labels, snapshot rates, and display helpers
 
-**Status:** planning, last updated 2026-05-15
+**Status:** planning, 2026-05-15
 
 **Owner:** Money maintainers
 
