@@ -105,8 +105,7 @@ defmodule Money.Mixfile do
 
   defp deps do
     [
-      # TEMPORARY: local Localize until 1.5.0 is on hex; restore {:localize, "~> 1.5"}.
-      {:localize, path: "../../localize/localize", override: true},
+      {:localize, "~> 1.5"},
       {:digital_token, "~> 2.0", optional: true},
       {:decimal, "~> 1.6 or ~> 2.0 or ~> 3.0"},
       {:phoenix_html, "~> 2.0 or ~> 3.0 or ~> 4.0", optional: true},
