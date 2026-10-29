@@ -89,21 +89,11 @@
           {Credo.Check.Design.AliasUsage,
            [priority: :low, if_nested_deeper_than: 2, if_called_more_often_than: 3]},
 
-          # All public functions carry a `@spec`. Excluded: the nimble_parsec
-          # grammar (macro-generated combinators) and protocol implementations
-          # (their signatures are fixed by the protocol).
+          # All public functions carry a `@spec`. Excluded: protocol
+          # implementations (their signatures are fixed by the protocol).
           {Credo.Check.Readability.Specs,
-           [
-             files: %{
-               included: ["lib/"],
-               excluded: ["lib/money/parser/combinators.ex", "lib/money/protocol/"]
-             }
-           ]},
-
-          # The nimble_parsec grammar is excluded: combinator pipelines are
-          # declarative grammar definitions, not imperative complexity.
-          {Credo.Check.Refactor.ABCSize,
-           [files: %{excluded: ["lib/money/parser/combinators.ex"]}]},
+           [files: %{included: ["lib/"], excluded: ["lib/money/protocol/"]}]},
+          {Credo.Check.Refactor.ABCSize, []},
 
           # Scoped to lib: tests deliberately create unique atoms (for example
           # uniquely named retriever processes) which is safe in a test run.
@@ -234,7 +224,7 @@
           {Credo.Check.Warning.LazyLogging, []},
           {Credo.Check.Warning.LeakyEnvironment, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
-          {Credo.Check.Warning.MixEnv, []},
+          {Credo.Check.Warning.MixEnv, []}
           # {Credo.Check.Warning.UnusedOperation, [{MyMagicModule, [:fun1, :fun2]}]}
 
           # {Credo.Check.Refactor.MapInto, []},

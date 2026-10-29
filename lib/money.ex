@@ -150,7 +150,11 @@ defmodule Money do
 
   * a `t:Money.t/0`, or
 
-  * `{:error, {exception, message}}` if the currency or amount is invalid.
+  * `{:error, {exception, message}}` if the currency or amount is invalid, or
+
+  * `{:error, exception}` if the `:locale` is invalid, or, for a string
+    amount, if its data is not installed
+    (`Localize.LocaleNotFoundInCacheError`).
 
   ### Examples
 
@@ -280,15 +284,10 @@ defmodule Money do
     # than falling through to the generic "unable to create money" error
     # which would hide the real cause.
     with {:ok, _locale} <- validate_locale_option(options) do
-      cond do
-        decimal = maybe_decimal(param_a, options) ->
-          new(param_b, decimal, options)
-
-        decimal = maybe_decimal(param_b, options) ->
-          new(param_a, decimal, options)
-
-        true ->
-          {:error, invalid_money_error(param_a, param_b)}
+      case string_amount(param_a, param_b, options) do
+        {:ok, currency, decimal} -> new(currency, decimal, options)
+        {:error, _locale_not_installed} = error -> error
+        :error -> {:error, invalid_money_error(param_a, param_b)}
       end
     end
   end
@@ -541,6 +540,13 @@ defmodule Money do
   currency code and amount will cause the parse to
   fail.
 
+  The amount is read by
+  `Localize.Number.Parser.parse_currency_amount/2`: a sign
+  may stand before the currency, between it and the amount
+  or after the amount, accounting parentheses negate it, and
+  it is read with the separators the locale uses for that
+  currency, or those named by the `:separators` option.
+
   ### Arguments
 
   * `string` is a string to be parsed
@@ -584,10 +590,15 @@ defmodule Money do
 
   ### Returns
 
-  * a `t:Money.t/0` if parsing is successful or
+  * a `t:Money.t/0` if parsing is successful, or
 
   * `{:error, {exception, reason}}` if an error is
-    detected.
+    detected, or
+
+  * `{:error, exception}` if the `:locale` is invalid or its
+    data is not installed (`Localize.LocaleNotFoundInCacheError`).
+    Parsing never reads with another locale's data, which
+    `en-AU` "$5" would read as US dollars.
 
   ### Notes
 
@@ -649,114 +660,215 @@ defmodule Money do
           Money.t() | {:error, {module(), String.t()}} | {:error, Exception.t()}
 
   def parse(string, options \\ []) do
-    case Money.Parser.money_parser(String.trim(string)) do
-      {:ok, result, "", _, _, _} ->
-        result
-        |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
-        |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
-        |> Map.new()
-        |> maybe_create_money(string, options)
-
-      _ ->
-        {:error, {Money.ParseError, "Could not parse #{inspect(string)}."}}
-    end
-  end
-
-  # No currency was in the string and options[:default_currency] == false
-  # meaning don't derive it from the locale
-  defp maybe_create_money(%{currency: false}, string, _options) do
-    {:error,
-     {Money.Invalid,
-      "A currency code, symbol or description must be specified but " <>
-        "was not found in #{inspect(string)}"}}
-  end
-
-  # No currency was in the string so we'll derive it from
-  # the locale
-  defp maybe_create_money(%{currency: nil} = money_map, string, options) do
-    locale = Keyword.get(options, :locale, Localize.get_locale())
-
-    with {:ok, locale} <- Localize.validate_locale(locale),
-         {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
-      money_map
-      |> Map.put(:currency, currency)
-      |> maybe_create_money(string, options)
-    end
-  end
-
-  defp maybe_create_money(%{currency: currency, amount: amount}, _string, options) do
-    locale = Keyword.get(options, :locale, Localize.get_locale())
-    currency = Kernel.to_string(currency)
-
     {only_filter, options} =
       Keyword.pop(options, :only, Keyword.get(options, :currency_filter, [:all]))
 
     {except_filter, options} = Keyword.pop(options, :except, [])
     {fuzzy, options} = Keyword.pop(options, :fuzzy, nil)
 
-    only_filter = normalize_filter(only_filter)
-    except_filter = normalize_filter(except_filter)
+    parse_options =
+      options
+      |> Keyword.take([:locale, :separators])
+      |> Keyword.put_new_lazy(:locale, &Localize.get_locale/0)
+      |> Keyword.merge(
+        only: normalize_filter(only_filter),
+        except: normalize_filter(except_filter),
+        fuzzy: fuzzy
+      )
+      |> put_token_resolver(fuzzy)
+      |> put_default_currency(Keyword.get(options, :default_currency))
 
-    with {:ok, locale} <- Localize.validate_locale(locale),
-         {:ok, currency_strings} <-
-           Localize.Currency.currency_strings(locale, only: only_filter, except: except_filter),
-         {:ok, currency} <-
-           find_currency(currency_strings, currency, fuzzy) do
-      Money.new(currency, amount, options)
+    string
+    |> Localize.Number.Parser.parse_currency_amount(parse_options)
+    |> parsed_money(string, parse_options, options)
+  end
+
+  defp parsed_money({:ok, {currency, amount}}, _string, _parse_options, options) do
+    Money.new(currency, amount, options)
+  end
+
+  # No currency was in the string and `options[:default_currency]` is `nil`,
+  # so the currency is the locale's.
+  defp parsed_money(
+         {:error, %Localize.ParseError{reason: :missing_currency}},
+         string,
+         parse_options,
+         options
+       ) do
+    missing_currency(Keyword.get(options, :default_currency), string, parse_options, options)
+  end
+
+  defp parsed_money({:error, error}, string, _parse_options, _options) do
+    parse_error(error, string)
+  end
+
+  defp missing_currency(nil, string, parse_options, options) do
+    with {:ok, locale} <- Localize.validate_locale(parse_options[:locale]),
+         {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
+      parse_options = Keyword.put(parse_options, :default_currency, currency)
+
+      string
+      |> Localize.Number.Parser.parse_currency_amount(parse_options)
+      |> parsed_money(string, parse_options, options)
     end
   end
 
-  defp find_currency(currency_strings, currency, nil) do
-    canonical_currency =
-      currency
-      |> String.downcase()
-      |> String.trim_trailing(".")
-
-    cond do
-      currency = Map.get(currency_strings, canonical_currency) ->
-        {:ok, currency}
-
-      digital_token = maybe_token(currency) ->
-        {:ok, digital_token}
-
-      true ->
-        {:error, unknown_currency_error(currency)}
-    end
-  end
-
-  defp find_currency(currency_strings, currency, fuzzy)
-       when is_float(fuzzy) and fuzzy > 0.0 and fuzzy <= 1.0 do
-    canonical_currency = String.downcase(currency)
-
-    {distance, currency_code} =
-      currency_strings
-      |> Enum.map(fn {k, v} -> {String.jaro_distance(k, canonical_currency), v} end)
-      |> Enum.sort(fn {k1, _v1}, {k2, _v2} -> k1 > k2 end)
-      |> hd
-
-    if distance >= fuzzy do
-      {:ok, currency_code}
-    else
-      {:error, unknown_currency_error(currency)}
-    end
-  end
-
-  defp find_currency(_currency_strings, _currency, fuzzy) do
+  # `options[:default_currency] == false` means do not derive the currency
+  # from the locale.
+  defp missing_currency(_false, string, _parse_options, _options) do
     {:error,
-     {
-       ArgumentError,
-       "option :fuzzy must be a number > 0.0 and <= 1.0. Found #{inspect(fuzzy)}"
-     }}
+     {Money.Invalid,
+      "A currency code, symbol or description must be specified but " <>
+        "was not found in #{inspect(string)}"}}
   end
 
-  defp maybe_token(token_id) do
+  defp parse_error(%Localize.UnknownCurrencyError{currency: currency}, _string) do
+    {:error, currency_text_error(currency)}
+  end
+
+  # The currency was found but its amount is not a number in the locale.
+  defp parse_error(%Localize.InvalidAmountError{currency: currency, amount: amount}, _string) do
+    {:error, invalid_money_error(currency, amount)}
+  end
+
+  defp parse_error(%Localize.InvalidValueError{context: "option :fuzzy", value: fuzzy}, _string) do
+    {:error,
+     {ArgumentError, "option :fuzzy must be a number > 0.0 and <= 1.0. Found #{inspect(fuzzy)}"}}
+  end
+
+  defp parse_error(%Localize.ParseError{}, string) do
+    {:error, {Money.ParseError, "Could not parse #{inspect(string)}."}}
+  end
+
+  defp parse_error(exception, _string) do
+    {:error, exception}
+  end
+
+  # Currency text that is a digital token name several tokens share says so,
+  # rather than that the currency is unknown.
+  defp currency_text_error(text) do
+    case shared_token_name(text) do
+      {:error, error} -> error
+      _other -> unknown_currency_error(text)
+    end
+  end
+
+  defp shared_token_name(text) do
+    if Code.ensure_loaded?(DigitalToken) and not Localize.Currency.known_currency_code?(text) do
+      token_id(text, [])
+    else
+      :error
+    end
+  end
+
+  # Currency text may name a digital token, and text that names both a
+  # token and an ISO 4217 currency, as `₮` names Tether and the tugrik, is
+  # refused. Only when the `:digital_token` dependency is present, so
+  # without it nothing is looked up and no text is ambiguous. As before,
+  # tokens are not tried for a fuzzy match.
+  defp put_token_resolver(parse_options, nil) do
     if Code.ensure_loaded?(DigitalToken) do
-      case apply(DigitalToken, :validate_token, [token_id]) do
-        {:ok, token_id} -> token_id
-        _other -> nil
+      Keyword.put(parse_options, :caller_currency, &token_currency/1)
+    else
+      parse_options
+    end
+  end
+
+  defp put_token_resolver(parse_options, _fuzzy) do
+    parse_options
+  end
+
+  defp put_default_currency(parse_options, default) when default in [nil, false] do
+    parse_options
+  end
+
+  defp put_default_currency(parse_options, default) do
+    Keyword.put(parse_options, :default_currency, default)
+  end
+
+  # An ISO 4217 code names its currency, as it does to `Money.new/3`, even
+  # where a digital token has the same short name: 20 of them do, among
+  # them `EUR`, `MNT` and `NOK`. Other text, such as a symbol, that names
+  # both a token and an ISO 4217 currency is refused by Localize.
+  defp token_currency(text) do
+    if Localize.Currency.known_currency_code?(text) do
+      :error
+    else
+      maybe_token(text)
+    end
+  end
+
+  # Currency text that names a digital token by its id, its name or its
+  # symbol. The symbol is the one `to_string/2` writes, so "₿1.234" parses
+  # back.
+  defp maybe_token(text) do
+    if Code.ensure_loaded?(DigitalToken) do
+      case token_id(text, []) do
+        {:ok, token_id} -> {:ok, token_id}
+        {:error, _shared_name} -> :error
+        :error -> token_by_symbol(text)
       end
     else
-      nil
+      :error
+    end
+  end
+
+  # A token identifier names its token. A name names a token when one token
+  # alone has it, or one native token among those that do: "BTC" is Bitcoin,
+  # though wrapped bitcoins on other chains share the name. Otherwise it
+  # names none rather than whichever is first in digital_token's index:
+  # "ETH" names thirteen native tokens and "USDT" one per chain.
+  defp token_id(name, options) do
+    case apply(DigitalToken, :validate_token, [name, options]) do
+      {:ok, ^name} -> {:ok, name}
+      {:ok, _first_of_its_name} -> one_token(name, Keyword.get(options, :dti_type))
+      {:error, _unknown} -> :error
+    end
+  end
+
+  defp one_token(name, dti_type) do
+    candidates = token_candidates(name, dti_type)
+    natives = for {token_id, :native} <- candidates, do: token_id
+    one_token(candidates, natives, name)
+  end
+
+  defp one_token([{token_id, _type}], _natives, _name) do
+    {:ok, token_id}
+  end
+
+  defp one_token(_candidates, [token_id], _name) do
+    {:ok, token_id}
+  end
+
+  defp one_token(candidates, _natives, name) do
+    {:error, shared_token_name_error(name, length(candidates))}
+  end
+
+  defp token_candidates(name, nil) do
+    apply(DigitalToken, :search, [name])
+  end
+
+  defp token_candidates(name, dti_type) do
+    apply(DigitalToken, :search, [name, dti_type])
+  end
+
+  defp shared_token_name_error(name, count) do
+    {Money.UnknownCurrencyError,
+     "The currency #{inspect(name)} names #{count} digital tokens, " <>
+       "so it is not read as any one of them"}
+  end
+
+  # No two tokens share a symbol in the data. Were two ever to, the symbol
+  # would name neither rather than one of them by chance.
+  defp token_by_symbol(text) do
+    token_ids =
+      for {token_id, symbol} <- apply(DigitalToken, :symbols, []),
+          symbol == text,
+          do: token_id
+
+    case token_ids do
+      [token_id] -> {:ok, token_id}
+      _none_or_several -> :error
     end
   end
 
@@ -2979,10 +3091,6 @@ defmodule Money do
 
   # Some historic currencies (for example :BGN) have no ISO 4217 digit
   # definition and carry `iso_digits: nil`, so we fall back to `:digits`.
-  # Localize <= 1.0.1 types `:iso_digits` as `non_neg_integer()` (never nil),
-  # which makes dialyzer consider the `nil` clause unreachable. The type is
-  # fixed in Localize 1.0.2; remove this suppression once that is the minimum.
-  @dialyzer {:nowarn_function, iso_digits_from_currency: 1}
   defp iso_digits_from_currency(%{iso_digits: nil, digits: d}), do: {:ok, d}
   defp iso_digits_from_currency(currency_data), do: Map.fetch(currency_data, :iso_digits)
 
@@ -3267,9 +3375,10 @@ defmodule Money do
 
   defp validate_digital_token(currency_code, options, original_error) do
     if Code.ensure_loaded?(DigitalToken) do
-      case apply(DigitalToken, :validate_token, [currency_code, options]) do
+      case token_id(currency_code, options) do
         {:ok, token_id} -> {:ok, token_id}
-        {:error, _} -> {:error, original_error}
+        {:error, _shared_name} = error -> error
+        :error -> {:error, original_error}
       end
     else
       {:error, original_error}
@@ -3377,57 +3486,83 @@ defmodule Money do
     end
   end
 
-  defp parse_decimal(string, nil, options) do
-    parse_decimal(string, Localize.get_locale(), options)
-  end
+  # A string amount is read by Localize as `Money.parse/2` reads one, so the
+  # two agree: with the separators the locale writes the currency with (and,
+  # in `de-AT` and `fr-CH`, its plain-number ones too), and with groups of
+  # the sizes the locale writes. What could be two amounts is refused rather
+  # than one guessed: "0.5" or "1.23" in `de`, where "." groups, are not 5
+  # and 123, and `de-AT` "1.234" could be 1234 or 1.234.
+  defp parse_decimal(string, currency, options) do
+    locale = options[:locale] || Localize.get_locale()
 
-  defp parse_decimal(string, locale, options) do
-    with {:ok, locale} <- Localize.validate_locale(locale),
-         {:ok, symbols} <- Localize.Number.Symbol.number_symbols_for(locale),
-         {:ok, script_symbols} <- number_symbols_for_number_system(symbols, locale),
-         {:ok, group, decimal} <- symbol_preference(script_symbols, options) do
-      decimal =
-        string
-        |> String.replace(group, "")
-        |> String.replace(decimal, ".")
-        |> Decimal.new()
+    parse_options =
+      options
+      |> Keyword.take([:separators])
+      |> Keyword.merge(locale: locale, number: :decimal, grouping: :sizes)
+      |> put_amount_currency(currency, locale)
 
-      {:ok, decimal}
+    # A locale that is not installed is refused as itself, as an invalid
+    # locale is, so the error says what to install rather than that the
+    # amount is wrong.
+    case Localize.Number.Parser.parse(string, parse_options) do
+      {:ok, decimal} -> {:ok, decimal}
+      {:error, %Localize.LocaleNotFoundInCacheError{} = error} -> {:error, error}
+      {:error, _reason} -> {:error, invalid_amount_error(string)}
     end
-  rescue
-    Decimal.Error ->
-      {:error, invalid_amount_error(string)}
   end
 
-  defp symbol_preference(symbols, options) do
-    preference = Keyword.get(options, :separators, :standard)
+  # Only a currency Localize has data for has separators of its own. A
+  # digital token's amount is written in the root locale's form ("1234.56"),
+  # so it is read with the locale's separators and the root locale's, and
+  # refused where they differ. Anything else is read as a plain number.
+  defp put_amount_currency(parse_options, currency, locale) do
+    case separators_currency(currency, locale) do
+      {:ok, code} ->
+        Keyword.put(parse_options, :currency, code)
 
-    group =
-      Map.get(symbols.group, preference) || Map.fetch!(symbols.group, :standard)
+      {:error, _no_separators_of_its_own} ->
+        Keyword.put(parse_options, :root_separators, digital_token?(currency))
+    end
+  end
 
-    decimal =
-      Map.get(symbols.decimal, preference) || Map.fetch!(symbols.decimal, :standard)
+  defp digital_token?(currency) do
+    Code.ensure_loaded?(DigitalToken) and match?({:ok, _token_id}, token_id(currency, []))
+  end
 
-    {:ok, group, decimal}
+  defp separators_currency(currency, locale) do
+    with {:ok, code} <- Localize.Currency.validate_currency(currency),
+         {:ok, _currency} <-
+           Localize.Currency.currency_for_code(code, locale: locale, fallback: true) do
+      {:ok, code}
+    end
   end
 
   # Return either a Decimal or nil
 
-  defp maybe_decimal(amount, options) when is_binary(amount) do
-    case parse_decimal(amount, options[:locale], options) do
-      {:ok, decimal} -> decimal
-      _other -> nil
+  # Either parameter of `new/3` may be the string amount and the other the
+  # currency.
+  defp string_amount(param_a, param_b, options) do
+    found = string_decimal(param_a, param_b, options)
+
+    if found == :error do
+      string_decimal(param_b, param_a, options)
+    else
+      found
     end
   end
 
-  defp maybe_decimal(_amount, _options) do
-    nil
+  # A locale that is not installed is refused as itself; any other string
+  # that is not an amount leaves `new/3` to report the pair it was given.
+  defp string_decimal(amount, currency, options) when is_binary(amount) do
+    case parse_decimal(amount, currency, options) do
+      {:ok, decimal} -> {:ok, currency, decimal}
+      {:error, %Localize.LocaleNotFoundInCacheError{}} = error -> error
+      {:error, _not_an_amount} -> :error
+    end
   end
 
-  defp number_symbols_for_number_system(symbols, locale) do
-    number_system = Localize.Number.System.number_system_from_locale(locale)
-    symbols = Map.get(symbols, number_system) || Map.get(symbols, :latn)
-    {:ok, symbols}
+  defp string_decimal(_amount, _currency, _options) do
+    :error
   end
 
   @doc false

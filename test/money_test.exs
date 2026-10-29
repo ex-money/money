@@ -761,6 +761,34 @@ defmodule MoneyTest do
     assert Money.from_integer(1234, :BGN) == Money.new(:BGN, "12.34")
   end
 
+  # Before 6.3.0 these read as the wrong amount: the locale's grouping
+  # separator was deleted wherever it stood, so "0.5" in `de` was 5.
+  test "new/3 refuses a string amount whose separators the locale does not write" do
+    for {amount, locale} <- [
+          {"0.5", "de"},
+          {"1.5", "de"},
+          {".5", "de"},
+          {"-.5", "de"},
+          {"0.000001", "de"},
+          {"1234.56", "de"},
+          {"1.5E-2", "de"},
+          {"1.2.3", "de"},
+          {"1,234.56", "de"},
+          {"0,5", "en"},
+          {"1234,56", "en"},
+          {"1,2,3", "en"},
+          {"1.234,56", "en"},
+          {"1 2", "en"},
+          {"1 234,56", "de"},
+          {"1.23", "de"},
+          {"1,23", "en"}
+        ] do
+      assert Money.new(:EUR, amount, locale: locale) ==
+               {:error, {Money.Invalid, "Unable to create money from :EUR and #{inspect(amount)}"}},
+             "#{locale} #{inspect(amount)}"
+    end
+  end
+
   if Version.compare(System.version(), "1.18.0") in [:gt, :eq] do
     test "new/3 with separators specified" do
       assert Money.new(:USD, "30,000", locale: :en_ZA, separators: :us) == Money.new(:USD, "30000")

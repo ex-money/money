@@ -1,7 +1,7 @@
 defmodule Money.Mixfile do
   use Mix.Project
 
-  @version "6.2.1"
+  @version "6.3.0"
   @source_url "https://github.com/ex-money/money"
 
   def project do
@@ -48,7 +48,7 @@ defmodule Money.Mixfile do
   defp description do
     """
     Money functions for operations on and localization of a money data type with support
-    for ISO 4217 currencies and ISO 24165 digial tokens (crypto currencies).
+    for ISO 4217 currencies and ISO 24165 digital tokens (crypto currencies).
     """
   end
 
@@ -82,7 +82,8 @@ defmodule Money.Mixfile do
   def docs do
     [
       source_ref: "v#{@version}",
-      extras: ["README.md", "CHANGELOG.md", "LICENSE.md"],
+      extras: ["README.md", "guides/parsing.md", "CHANGELOG.md", "LICENSE.md"],
+      groups_for_extras: [Guides: ["guides/parsing.md"]],
       main: "readme",
       groups_for_modules: groups_for_modules(),
       logo: "logo.png",
@@ -104,9 +105,9 @@ defmodule Money.Mixfile do
 
   defp deps do
     [
-      {:localize, "~> 1.0"},
+      # TEMPORARY: local Localize until 1.5.0 is on hex; restore {:localize, "~> 1.5"}.
+      {:localize, path: "../../localize/localize", override: true},
       {:digital_token, "~> 2.0", optional: true},
-      {:nimble_parsec, "~> 0.5 or ~> 1.0"},
       {:decimal, "~> 1.6 or ~> 2.0 or ~> 3.0"},
       {:phoenix_html, "~> 2.0 or ~> 3.0 or ~> 4.0", optional: true},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},

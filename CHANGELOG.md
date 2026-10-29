@@ -2,11 +2,55 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
-## Money v6.2.2
+## Money v6.3.0
 
-This is the changelog for Money v6.2.2 released on October 28th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+This is the changelog for Money v6.3.0 released on October 28th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+
+Two changes to know about when upgrading. The error module `Money.parse/2` returns follows the reason: currency text that names no currency is `Money.UnknownCurrencyError`, where some of it was `Money.ParseError`, and an amount that cannot be read in a currency it found is `Money.Invalid`; code that matches on the module should be checked against the [parsing guide](https://hexdocs.pm/ex_money/parsing.html). `Money.new/3` with a string amount reads it with the locale's separators as before, now through Localize's parser, and takes three to four times as long as in 6.2 (20 µs where it took 6); a program that holds its own decimal passes a `t:Decimal.t/0`, which takes 2 µs.
+
+### Enhancements
+
+* `Money.parse/2` reads amounts with `Localize.Number.Parser.parse_currency_amount/2`, so it reads what Localize formats: a currency's own separators (`fr-CH` "1’234.56 CHF"), Unicode minus signs, bidi marks and "5.–" whole amounts. Requires Localize 1.5; `nimble_parsec` is no longer a dependency.
+
+* `Money.parse/2` reads a digital token identifier, such as "Q9PB7XDNF 5", so an amount in a token whose name several tokens share can be parsed. A space separates the identifier from the number.
+
+* The [parsing guide](https://hexdocs.pm/ex_money/parsing.html) describes what `Money.parse/2` and `Money.new/3` read and what they refuse, with examples.
 
 ### Bug Fixes
+
+* `Money.parse/2` and `Money.new/3` with a string amount return `Localize.LocaleNotFoundInCacheError` for a locale whose data is not installed, where they read with English data: `en-AU` "$5" was US dollars and `de` "1.234,56 €" €1.23456.
+
+* `Money.new/3` and `Money.parse/2` refuse a string amount that could be two amounts rather than guess one: `de` "0.5", "1.23" and "1234.56" and `en` "0,5" and "1,23", which read as 5, 123, 123456, 5 and 123, `fr` "1.234", which read as 1.234, and `de-AT` "100.00", where a period groups the euro. They read the same string the same way, with Localize.
+
+* With `:digital_token` installed, `Money.parse/2` refuses currency text that names both a token and an ISO 4217 currency, such as `₮` (Tether and the tugrik), except in the currency's own locale (`mn` "₮5" is the tugrik); an ISO 4217 code such as `EUR` still names its currency.
+
+* `Money.parse/2` and `Money.new/3` refuse a digital token name several tokens share unless one of them is native, where they took the first in digital_token's index: "BTC" is Bitcoin, but "ETH", "USDT" and "USDC" are refused; a token identifier still names its token.
+
+* A digital token amount inspects with its identifier where its short name does not read back as the same token: `Money.new("Q9PB7XDNF", "5")` (one USDT of several), where it inspected as `Money.new("USDT", "5")`.
+
+* `Money.parse/2` recognises a digital token by its symbol, so what `Money.to_string/2` writes ("₿1.234") parses back. A token amount is read with the locale's separators and the root locale's and refused where they differ: `Money.new("BTC", "1.234", locale: "de")` was 1234 BTC.
+
+* `Money.new/3` and `Money.parse/2` read a `de-AT` or `fr-CH` amount written with either the currency's separators or the plain-number ones: `€ 1.234,56` and `1'234,56 CHF` both read, and `de-AT` "1.234 EUR" is 1234 euros, not 1.234. Thanks to @rubas for #208 and #209.
+
+* `Money.parse/2` matches currency text after NFKC normalization, so `ja` "¥1.00" and a fullwidth "＄1.00" read; the number is not normalized, so "$5²" is refused.
+
+* `Money.parse/2` reads a narrow letter abbreviation only for the locale's own currency, so Swiss "15 Rp." (15 Rappen) is refused where it read as 15 rupiah; a currency sign naming one currency, such as `en-AU` "€5", still reads.
+
+* `Money.parse/2` refuses a symbol several of the locale's currencies share, such as "$" in `fr`, `es` and `nl`, which read as the New Zealand dollar.
+
+* `Money.parse/2` refuses one to three digits, a decimal mark and three more in a currency of fewer decimal places, since they may be a thousands group: `de` "73,460 €" read as 73.46 and `en` "USD 1.234" as 1.234.
+
+* `Money.parse/2` reads a historic currency only by its code or name, so `ru` "6 300 Р" is refused where it read as RUR, the ruble of 1991–1998, and `bg` "230 лв." is refused now the euro has replaced the lev.
+
+* `Money.parse/2` with `:fuzzy` refuses a currency text that two currencies match equally closely, where it took the first alphabetically: `fr` "100 dollars" read as the Fiji dollar.
+
+* `Money.parse/2` refuses a sign inside accounting parentheses: "($-127.54)" read as 127.54, where others read it as -127.54.
+
+* `Money.parse/2` and `Money.new/3` refuse a minus before a decimal mark with no digit ahead of it: Swiss "Fr. –.15" and Dutch "€ -,50" write a dash for the zero there, and read as negative amounts.
+
+* `Money.parse/2` reads "$.50" as 0.50, not 50: a mark between the currency and the digits is the currency's only where CLDR writes the currency with it, as in `da` "kr.5", and an amount where it is neither that nor the decimal mark, such as `nb` "kr.5", is refused.
+
+* `Money.parse/2` reads Dutch "€ 5,-" as 5, not -5, and reads "CHF 5.–", "CHF 1’234.56", "−1 234,56 kr" and "-CHF 1,234.56", which it refused. Thanks to @rubas for the reports in #208 and #209.
 
 * `Money.to_string/2` given a `Localize.Number.Format.Options` struct formats a whole amount instead of raising, and returns `{:error, {Money.FormatError, message}}` when the struct was validated for a different currency, or without one, rather than formatting the money with that other currency's symbol. Thanks to @rubas for the fix in #207.
 

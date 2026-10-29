@@ -444,69 +444,23 @@ Note that the amount and currency code arguments to `Money.new/3` can be supplie
 
 ### Parsing money strings
 
-`Money` provides an ability to parse strings that contain a currency and an amount.  The currency can be represented in different ways depending on the locale. See `Money.parse/2` for further information.  Some examples are:
+`Money.parse/2` reads a string that holds a currency and an amount, with the separators and currency names of the locale. A string that could be read as two amounts, or in two currencies, is refused rather than guessed. The [parsing guide](https://hexdocs.pm/ex_money/parsing.html) describes what is read and what is refused.
 
-```
-  iex> Money.parse "$au 12346", locale: "fr"
-  Money.new(:AUD, "12346")
+```elixir
+iex> Money.parse("$1,234.56", locale: "en")
+Money.new(:USD, "1234.56")
 
-  iex> Money.parse "dollar australien 12346", locale: "fr"
-  Money.new(:AUD, "12346")
+iex> Money.parse("1.234,56 €", locale: "de")
+Money.new(:EUR, "1234.56")
 
-  iex> Money.parse "A$ 12346", locale: "en"
-  Money.new(:AUD, "12346")
+iex> Money.parse("dollar australien 12346", locale: "fr")
+Money.new(:AUD, "12346")
 
-  iex> Money.parse "australian dollar 12346.45", locale: "en"
-  Money.new(:AUD, "12346.45")
+iex> Money.parse("100", default_currency: :EUR)
+Money.new(:EUR, "100")
 
-  # Parse using a default currency
-  iex> Money.parse("100", default_currency: :EUR)
-  Money.new(:EUR, "100")
-
-  # Parse using the default currency of the locale
-	# If no `:locale` option is provided then
-	# `Localize.get_locale/0` is used.
-  iex> Money.parse("100", locale: "en")
-  Money.new(:USD, "100")
-
-  # Note that the decimal separator in the "de" locale
-  # is a `,`
-  iex> Money.parse "AU$ 12346,45", locale: "de"
-  Money.new(:AUD, "12346.45")
-
-  # Round trip formatting is supported
-  iex> {:ok, string} = Localize.Number.to_string 1234, currency: :AUD
-  {:ok, "A$1,234.00"}
-  iex> Money.parse string
-  #Money<:AUD, 1234.00>
-
-  # Fuzzy matching is possible
-  iex> Money.parse("100 eurosports", fuzzy: 0.8)
-  Money.new(:EUR, "100")
-
-  iex> Money.parse("100 eurosports", fuzzy: 0.9)
-  {:error,
-   {Money.Invalid, "Unable to create money from \"eurosports\" and \"100\""}}
-
-  # Eligible currencies can be filtered
-  iex> Money.parse("100 eurosports", fuzzy: 0.8, only: [:current])
-  Money.new(:EUR, "100")
-
-  iex> Money.parse("100 euro", only: [:EUR, :USD, :COP])
-  Money.new(:EUR, "100")
-
-  iex> Money.parse("100 euro", except: [:EUR, :USD, :COP])
-  {:error,
-    {Money.UnknownCurrencyError,
-      "The currency \"euro\" is unknown or not supported"}}
-
-  iex> Money.parse "100 afghan afghanis"
-  Money.new(:AFN, "100")
-
-  iex> Money.parse "100 afa", only: [:current]
-  {:error,
-   {Money.UnknownCurrencyError,
-    "The currency \"afa\" is unknown or not supported"}}
+iex> Money.parse("1.234 €", locale: "fr")
+{:error, {Money.Invalid, "Unable to create money from :EUR and \"1.234\""}}
 ```
 
 ### Casting a money type (basic support for HTML forms)
@@ -583,7 +537,7 @@ The main API for formatting `Money` is `Money.to_string/2`. Formatting options a
     {:ok, "$234.47"}
 
     iex> Money.to_string Money.new("USD", "234.467"), format: :long
-    {:ok, "234 US dollars"}
+    {:ok, "234.47 US dollars"}
 
     iex> Money.to_string Money.new("USD", "234.467"), locale: "fr"
     {:ok, "234,47 $US"}
@@ -846,7 +800,7 @@ The companion package [ex_money_sql](https://hex.pm/packages/ex_money_sql) provi
 ```elixir
 def deps do
   [
-    {:ex_money, "~> 6.2"},
+    {:ex_money, "~> 6.3"},
     ...
   ]
 end
