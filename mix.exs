@@ -94,8 +94,22 @@ defmodule Money.Mixfile do
 
   defp groups_for_modules do
     [
+      Currencies: [Money.Currency, Money.Currency.Store, Money.Sigil],
+      Financial: [Money.Financial],
       "Exchange Rates": ~r/^Money.ExchangeRates.?/,
-      Subscriptions: ~r/^Money.Subscription.?/
+      Subscriptions: ~r/^Money.Subscription.?/,
+      Exceptions: [
+        Money.CurrencyAlreadyDefinedError,
+        Money.CurrencyNotSavedError,
+        Money.ExchangeRateError,
+        Money.FormatError,
+        Money.Invalid,
+        Money.InvalidAmountError,
+        Money.InvalidCurrencyError,
+        Money.InvalidDigitsError,
+        Money.ParseError,
+        Money.UnknownCurrencyError
+      ]
     ]
   end
 

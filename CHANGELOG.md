@@ -4,7 +4,7 @@
 
 ## Money v6.3.0
 
-This is the changelog for Money v6.3.0 released on October 28th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+This is the changelog for Money v6.3.0 released on October 30th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
 
 Two changes to know about when upgrading. The error module `Money.parse/2` returns follows the reason: currency text that names no currency is `Money.UnknownCurrencyError`, where some of it was `Money.ParseError`, and an amount that cannot be read in a currency it found is `Money.Invalid`; code that matches on the module should be checked against the [parsing guide](https://hexdocs.pm/ex_money/parsing.html). `Money.new/3` with a string amount reads it with the locale's separators as before, now through Localize's parser, and takes three to four times as long as in 6.2 (20 µs where it took 6); a program that holds its own decimal passes a `t:Decimal.t/0`, which takes 2 µs.
 

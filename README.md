@@ -281,7 +281,7 @@ An optional callback module can also be defined.  This module defines a `rates_r
 Note that `ex_money` does not define a json library dependency and therefore it is the users responsibility to configure the required json library as a dependency in the application's `mix.exs`.
 
 The recommended library is [jason](https://hex.pm/packages/jason) on Elixir versions prior to 1.18 which would be configured as:
-```
+```elixir
   defp deps do
     [
       {:jason, "~> 1.0"},
@@ -485,7 +485,7 @@ If the use of `float`s is require then the function `Money.from_float/2` is prov
 ### Comparison functions
 
 `Money` values can be compared as long as they have the same currency. The recommended function is `Money.compare/2` which, given two compatible money amounts, will return `:lt`, `:eq` or `:gt` depending on the relationship. For example:
-```
+```elixir
 iex> Money.compare Money.new(:USD, 100), Money.new(:USD, 200)
 :lt
 
@@ -496,7 +496,7 @@ iex> Money.compare Money.new(:USD, 100), Money.new(:AUD, 200)
 ```
 
 From Elixir verison `1.10.0` onwards, several functions in the `Enum` module can use the `Money.compare/2` function to simplify sorting. For example:
-```
+```elixir
 iex> list = [Money.new(:USD, 100), Money.new(:USD, 200)]
 [Money.new(:USD, "100"), Money.new(:USD, "200")]
 iex> Enum.sort list, Money
@@ -938,3 +938,7 @@ See the answer to 28.
 **30. And the final one: a standalone $ character is always pronounced dollar. (It's also the peso sign.)**
 
 This is outside the domain of `Money`.
+
+## License
+
+Money is released under the Apache License, Version 2.0. See [LICENSE.md](https://github.com/ex-money/money/blob/v6.3.0/LICENSE.md).
