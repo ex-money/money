@@ -54,7 +54,7 @@ In `mix.exs`, replace the CLDR dependencies with `localize`:
 {:ex_cldr_units, "~> 3.19", optional: true},
 
 # Add this:
-{:localize, "~> 1.0"},
+{:localize, "~> 1.5"},
 ```
 
 ### Remove backend modules
@@ -941,4 +941,4 @@ This is outside the domain of `Money`.
 
 ## License
 
-Money is released under the Apache License, Version 2.0. See [LICENSE.md](https://github.com/ex-money/money/blob/v6.3.0/LICENSE.md).
+Money is released under the Apache License, Version 2.0. See [LICENSE.md](https://github.com/ex-money/money/blob/v6.3.1/LICENSE.md).

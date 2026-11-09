@@ -4,7 +4,7 @@
 
 ## Money v6.3.1
 
-This is the changelog for Money v6.3.1, which is not yet released.
+This is the changelog for Money v6.3.1 released on November 10th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
 
 ### Bug Fixes
 
