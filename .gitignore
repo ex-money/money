@@ -31,3 +31,5 @@ erl_crash.dump
 # mise
 mise.toml
 
+# Claude Code session context, kept out of the repository
+CLAUDE.local.md
