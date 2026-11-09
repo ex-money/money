@@ -2,6 +2,14 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Money v6.3.1
+
+This is the changelog for Money v6.3.1, which is not yet released.
+
+### Bug Fixes
+
+* `Money.Currency.currency_for_code/1` finds a currency the process locale does not list, such as the Kuwaiti dinar in `ady`, through the locale's parents and then the default locale, where it returned `Money.UnknownCurrencyError`. So `Money.round/2`, `Money.to_integer_exp/2`, `Money.from_integer/3` and `Money.put_fraction/2` work in any process locale.
+
 ## Money v6.3.0
 
 This is the changelog for Money v6.3.0 released on October 30th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

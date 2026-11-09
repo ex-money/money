@@ -291,6 +291,11 @@ defmodule Money.Currency do
   The lookup checks the locale-aware currency data first and then falls back
   to the custom currency store. Unknown codes never create new atoms.
 
+  The currency data is read in the process locale (`Localize.get_locale/0`).
+  A locale lists only some currencies, so one it does not list is read from
+  the locale's parents and then the default locale: its digits are its own
+  in every locale, and only its names and symbols come from elsewhere.
+
   ### Arguments
 
   * `code` is an ISO 4217 currency code, or a custom or private currency code,
@@ -321,7 +326,7 @@ defmodule Money.Currency do
         {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
 
       normalized ->
-        case Localize.Currency.currency_for_code(normalized) do
+        case Localize.Currency.currency_for_code(normalized, fallback: true) do
           {:ok, _currency} = success -> success
           {:error, _} -> custom_currency_for_code(code, normalized)
         end
